@@ -77,6 +77,8 @@ To run all tests in the test suite, including both the integration tests and the
 yarn test
 ```
 
+Note: integration tests are expected to occasionally fail due to them depending on 1inch/Paraswap API and being run against a forked network. Tests should pass after 2 or 3 retries max.
+
 ## Files in Scope
 
 ```
