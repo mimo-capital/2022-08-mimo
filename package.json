@@ -1,0 +1,63 @@
+{
+  "name": "supervaults-v2",
+  "version": "1.0.0",
+  "main": "index.js",
+  "repository": "git@github.com:mimo-capital/supervaults-v2.git",
+  "author": "RayXpub <doxdev.reargues@aleeas.com>",
+  "license": "MIT",
+  "scripts": {
+    "lint": "yarn lint:sol && yarn lint:js",
+    "lint:sol": "./node_modules/solhint/solhint.js contracts/**/*.sol",
+    "lint:js": "xo",
+    "prepare": "husky install",
+    "test": "yarn hardhat clean && yarn hardhat compile && yarn hardhat test"
+  },
+  "dependencies": {
+    "@aave/core-v3": "^1.13.1",
+    "@openzeppelin/contracts": "^4.6.0",
+    "@prb/proxy": "^2.0.0",
+    "d": "^1.0.1",
+    "eslint-config-xo-typescript": "^0.51.1",
+    "hardhat": "^2.9.9",
+    "hardhat-deploy": "^0.11.10",
+    "husky": "^8.0.1",
+    "lint-staged": "^13.0.3",
+    "xo": "^0.50.0"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged"
+    }
+  },
+  "devDependencies": {
+    "@nomiclabs/hardhat-ethers": "npm:hardhat-deploy-ethers",
+    "@nomiclabs/hardhat-etherscan": "^3.0.0",
+    "@typechain/ethers-v5": "^7.0.1",
+    "@typechain/hardhat": "^2.3.0",
+    "@types/chai": "^4.2.21",
+    "@types/mocha": "^9.0.0",
+    "@types/node": "^12.0.0",
+    "@typescript-eslint/eslint-plugin": "^4.29.1",
+    "@typescript-eslint/parser": "^4.29.1",
+    "chai": "^4.2.0",
+    "dotenv": "^16.0.0",
+    "eslint": "^7.29.0",
+    "eslint-config-prettier": "^8.3.0",
+    "eslint-config-standard": "^16.0.3",
+    "eslint-plugin-import": "^2.23.4",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-prettier": "^3.4.0",
+    "eslint-plugin-promise": "^5.1.0",
+    "ethereum-waffle": "^3.0.0",
+    "ethers": "5",
+    "hardhat-gas-reporter": "^1.0.4",
+    "prettier": "^2.3.2",
+    "prettier-plugin-solidity": "^1.0.0-beta.13",
+    "solhint": "^3.3.6",
+    "solhint-plugin-prettier": "^0.0.5",
+    "solidity-coverage": "^0.7.16",
+    "ts-node": "^10.1.0",
+    "typechain": "^5.1.2",
+    "typescript": "^4.5.2"
+  }
+}
