@@ -56,4 +56,61 @@ Under "SPONSORS ADD INFO HERE" heading below, include the following:
 - Starts August 2, 2022 20:00 UTC
 - Ends August 7, 2022 20:00 UTC
 
-[ ⭐️ SPONSORS ADD INFO HERE ]
+# SuperVaults V2
+SuperVaults V2 enables any user to deploy their own proxy contract to extend the functionality of the Mimo protocol. This opens users up to do complicated vault operations such as:
+- All `vaultsCore` operations through `delegateCall`s
+- Leveraging collateral to be more sensitive to price movements
+- Rebalancing collateral between vaults without additional capital 
+- Repaying a vault's debt using the collateral and withdrawing leftover collateral  
+- Delegating control for anyone to rebalance one's vaults to avoid liquidation, with restrictions to preserve the value held in the vault
+- Delegating control to a manger to rebalance one's vaults based on future market predictions, with restrictions to preserve the value held in the vault
+
+See [docs/](docs/) for more documentation and [docs/Contracts.md/](docs/Contracts.md) for an overview of all the contracts.
+
+## Getting started
+
+Install all dependencies with `yarn` first.
+
+To run all tests in the test suite, including both the integration tests and the unit tests, use:
+
+```
+yarn test
+```
+
+## Files in Scope
+
+```
+-----------------------------------------------------------------------------------------------------------------
+File                                                                          blank        comment           code
+-----------------------------------------------------------------------------------------------------------------
+contracts/actions/MIMOEmptyVault.sol                                             18             35             77
+contracts/actions/MIMOFlashloan.sol                                               8             18             33
+contracts/actions/MIMOLeverage.sol                                               22             34             83
+contracts/actions/MIMORebalance.sol                                              13             36             90
+contracts/actions/MIMOSwap.sol                                                   10             16             40
+contracts/actions/MIMOVaultActions.sol                                           12             45             55
+contracts/actions/automated/MIMOAutoAction.sol                                   20             23             66
+contracts/actions/automated/MIMOAutoRebalance.sol                                33             76            178
+contracts/actions/automated/interfaces/IMIMOAutoAction.sol                        9              1             26
+contracts/actions/automated/interfaces/IMIMOAutoRebalance.sol                     4              1             14
+contracts/actions/interfaces/IMIMOEmptyVault.sol                                  2              1             11
+contracts/actions/interfaces/IMIMOFlashloan.sol                                   5              1             20
+contracts/actions/interfaces/IMIMOLeverage.sol                                    3              1             12
+contracts/actions/interfaces/IMIMOProxyAction.sol                                 1              1              4
+contracts/actions/interfaces/IMIMORebalance.sol                                   3              1             18
+contracts/actions/interfaces/IMIMOSwap.sol                                        2              1              8
+contracts/actions/interfaces/IMIMOVaultActions.sol                               11              1             20
+contracts/actions/managed/MIMOManagedAction.sol                                  25             30             77
+contracts/actions/managed/MIMOManagedRebalance.sol                               26             47            139
+contracts/actions/managed/interfaces/IMIMOManagedAction.sol                      11              1             26
+contracts/actions/managed/interfaces/IMIMOManagedRebalance.sol                    3              1             13
+contracts/proxy/MIMOProxy.sol                                                    25             28             95
+contracts/proxy/MIMOProxyFactory.sol                                             16             15             27
+contracts/proxy/MIMOProxyRegistry.sol                                            15             16             28
+contracts/proxy/interfaces/IMIMOProxy.sol                                        13             45             22
+contracts/proxy/interfaces/IMIMOProxyFactory.sol                                  9             16              9
+contracts/proxy/interfaces/IMIMOProxyRegistry.sol                                 7             23              9
+-----------------------------------------------------------------------------------------------------------------
+SUM:                                                                            326            514           1200
+-----------------------------------------------------------------------------------------------------------------
+```
