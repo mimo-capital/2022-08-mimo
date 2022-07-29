@@ -73,7 +73,7 @@ SUM:                                                                            
 ```
 ### Do you have a link to the repo that the contest will cover?
 
-Repo is still private, I can invite anyone that wants to take a look at it
+Repo is still private
 
 ### How many (non-library) contracts are in the scope?
 
