@@ -29,6 +29,16 @@ yarn test
 
 Note: integration tests are expected to occasionally fail due to them depending on 1inch/Paraswap API and being run against a forked network. Tests should pass after 2 or 3 retries max.
 
+### Note on Slither
+
+Outputs the following:
+
+```
+AttributeError: 'NoneType' object has no attribute 'can_reenter'
+```
+
+This is most likely linked to the opened issue [crytic/slither#1001](https://github.com/crytic/slither/issues/1001) which is quite well described [here](https://bytemeta.vip/repo/crytic/slither/issues/1253). Unfortunately we did not find a way to make Slither work.
+
 ## Files in Scope
 
 ```
