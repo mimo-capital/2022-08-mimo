@@ -20,14 +20,17 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
   }
 });
 
-const RINKEBY_ENDPOINT = `https://rinkeby.infura.io/v3/${process.env.INFURA_TOKEN}`;
-const KOVAN_ENDPOINT = `https://kovan.infura.io/v3/${process.env.INFURA_TOKEN}`;
-const GOERLI_ENDPOINT = `https://goerli.infura.io/v3/${process.env.INFURA_TOKEN}`;
-export const MAINNET_ENDPOINT = `https://mainnet.infura.io/v3/${process.env.INFURA_TOKEN}`;
-export const POLYGON_ENDPOINT = process.env.INFURA_TOKEN
-  ? `https://polygon-mainnet.infura.io/v3/${process.env.INFURA_TOKEN}`
+// Temporary key generated for just this contest
+const INFURA_TOKEN = "4d0f478694054e17b9031f02bea2d926";
+
+const RINKEBY_ENDPOINT = `https://rinkeby.infura.io/v3/${INFURA_TOKEN}`;
+const KOVAN_ENDPOINT = `https://kovan.infura.io/v3/${INFURA_TOKEN}`;
+const GOERLI_ENDPOINT = `https://goerli.infura.io/v3/${INFURA_TOKEN}`;
+export const MAINNET_ENDPOINT = `https://mainnet.infura.io/v3/${INFURA_TOKEN}`;
+export const POLYGON_ENDPOINT = INFURA_TOKEN
+  ? `https://polygon-mainnet.infura.io/v3/${INFURA_TOKEN}`
   : "https://polygon-rpc.com/";
-const MUMBAI_ENDPOINT = `https://polygon-mumbai.infura.io/v3/${process.env.INFURA_TOKEN}`;
+const MUMBAI_ENDPOINT = `https://polygon-mumbai.infura.io/v3/${INFURA_TOKEN}`;
 const FANTOM_TESTNET_ENDPOINT = `https://rpc.testnet.fantom.network/`;
 export const FANTOM_MAINNET_ENDPOINT = `https://rpc.ftm.tools/`;
 
@@ -111,7 +114,7 @@ const config: HardhatUserConfig = {
     },
   },
   gasReporter: {
-    enabled: process.env.REPORT_GAS !== undefined,
+    enabled: true, // Hardcoded to true for contest
     currency: "USD",
   },
   etherscan: {

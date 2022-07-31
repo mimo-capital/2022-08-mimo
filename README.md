@@ -16,15 +16,14 @@ SuperVaults V2 enables any user to deploy their own proxy contract to extend the
 - Delegating control for anyone to rebalance one's vaults to avoid liquidation, with restrictions to preserve the value held in the vault
 - Delegating control to a manger to rebalance one's vaults based on future market predictions, with restrictions to preserve the value held in the vault
 
-See [docs/](docs/) for more documentation and [docs/Contracts.md/](docs/Contracts.md) for an overview of all the contracts.
+See [docs/](https://github.com/code-423n4/2022-08-mimo/tree/main/docs/) for more documentation and [docs/Contracts.md/](https://github.com/code-423n4/2022-08-mimo/tree/main/docs/Contracts.md) for an overview of all the contracts.
 
 ## Getting started
 
-Install all dependencies with `yarn` first.
-
-To run all tests in the test suite, including both the integration tests and the unit tests, use:
-
-```
+```bash
+# Install all dependencies with `yarn` first.
+yarn
+# To run all tests in the test suite, including both the integration tests and the unit tests, use:
 yarn test
 ```
 
