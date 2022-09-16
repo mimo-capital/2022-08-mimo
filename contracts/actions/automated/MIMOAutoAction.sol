@@ -1,26 +1,26 @@
-// SPDX-License-Identifier: Unlicense
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.10;
 
 import "./interfaces/IMIMOAutoAction.sol";
 import "../../core/interfaces/IAddressProvider.sol";
-import { CustomErrors } from "../../libraries/CustomErrors.sol";
+import { Errors } from "../../libraries/Errors.sol";
 import "../../libraries/WadRayMath.sol";
 
 contract MIMOAutoAction is IMIMOAutoAction {
   using WadRayMath for uint256;
 
   IAddressProvider public immutable a;
-  IMIMOProxyRegistry public immutable proxyRegistry;
+  IMIMOProxyFactory public immutable proxyFactory;
 
   mapping(uint256 => AutomatedVault) internal _automatedVaults;
   mapping(uint256 => uint256) internal _operationTracker;
 
-  constructor(IAddressProvider _a, IMIMOProxyRegistry _proxyRegistry) {
-    if (address(_a) == address(0) || address(_proxyRegistry) == address(0)) {
-      revert CustomErrors.CANNOT_SET_TO_ADDRESS_ZERO();
+  constructor(IAddressProvider _a, IMIMOProxyFactory _proxyFactory) {
+    if (address(_a) == address(0) || address(_proxyFactory) == address(0)) {
+      revert Errors.CANNOT_SET_TO_ADDRESS_ZERO();
     }
     a = _a;
-    proxyRegistry = _proxyRegistry;
+    proxyFactory = _proxyFactory;
   }
 
   /**
@@ -30,20 +30,25 @@ contract MIMOAutoAction is IMIMOAutoAction {
     @param autoParams AutomatedVault struct containing all automation parameters
    */
   function setAutomation(uint256 vaultId, AutomatedVault calldata autoParams) external override {
-    address vaultOwner = a.vaultsData().vaultOwner(vaultId);
-    address mimoProxy = address(proxyRegistry.getCurrentProxy(msg.sender));
-
-    if (mimoProxy != vaultOwner && vaultOwner != msg.sender) {
-      revert CustomErrors.CALLER_NOT_VAULT_OWNER(mimoProxy, vaultOwner);
+    address vaultOwner = a.vaultsData().vaultOwner(vaultId); // vaultOwner is the owner in vaultsCore
+    if (vaultOwner == address(0)) {
+      revert Errors.VAULT_NOT_INITIALIZED(vaultId);
     }
+    address mimoProxy = address(proxyFactory.getCurrentProxy(msg.sender));
 
+    // If msg.sender isn't the mimoProxy, msg.sender should own the mimoProxy for the vaultId
+    if (vaultOwner != msg.sender) {
+      if (mimoProxy != vaultOwner) {
+        revert Errors.CALLER_NOT_VAULT_OWNER(mimoProxy, vaultOwner);
+      }
+    }
     uint256 toVaultMcr = a.config().collateralMinCollateralRatio(autoParams.toCollateral);
     uint256 maxVarFee = (autoParams.targetRatio.wadDiv(toVaultMcr + autoParams.mcrBuffer) + WadRayMath.WAD).wadDiv(
       autoParams.targetRatio
     );
 
     if (autoParams.varFee >= maxVarFee) {
-      revert CustomErrors.VARIABLE_FEE_TOO_HIGH(maxVarFee, autoParams.varFee);
+      revert Errors.VARIABLE_FEE_TOO_HIGH(maxVarFee, autoParams.varFee);
     }
 
     _automatedVaults[vaultId] = autoParams;
@@ -52,6 +57,7 @@ contract MIMOAutoAction is IMIMOAutoAction {
   }
 
   /**
+    @param vaultId Vault id of the queried vault
     @return AutomatedVault struct of a specific vault id
    */
   function getAutomatedVault(uint256 vaultId) external view override returns (AutomatedVault memory) {
@@ -59,6 +65,7 @@ contract MIMOAutoAction is IMIMOAutoAction {
   }
 
   /**
+    @param vaultId Vault id of the queried vault
     @return Timestamp of the last performed operation
    */
   function getOperationTracker(uint256 vaultId) external view override returns (uint256) {
@@ -67,7 +74,7 @@ contract MIMOAutoAction is IMIMOAutoAction {
 
   /**
     @notice Helper function calculating a vault's net value and LTV ratio
-    @param vaultId Vault id of the vault for which to return info
+    @param vaultId Vault id of the queried vault
     @return vaultRatio Vault collateral value / vault debt
     @return vaultState VaultState struct of the target vault
    */
@@ -87,6 +94,9 @@ contract MIMOAutoAction is IMIMOAutoAction {
 
   /**
     @notice Helper function determining if a vault value variation is within vault's management parameters
+    @param autoVault AutomatedVault struct of the vault being rebalanced
+    @param rebalanceValue Rebalance value in stablex
+    @param swapResultValue Collateral value in stablex after swap
     @return True if value change is below allowedVariation and false if it is above
    */
   function _isVaultVariationAllowed(

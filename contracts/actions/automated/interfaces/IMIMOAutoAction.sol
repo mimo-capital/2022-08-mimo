@@ -1,8 +1,8 @@
-// SPDX-License-Identifier: Unlicense
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.10;
 
 import "../../../core/interfaces/IAddressProvider.sol";
-import "../../../proxy/interfaces/IMIMOProxyRegistry.sol";
+import "../../../proxy/interfaces/IMIMOProxyFactory.sol";
 
 interface IMIMOAutoAction {
   struct AutomatedVault {
@@ -22,13 +22,13 @@ interface IMIMOAutoAction {
     uint256 vaultDebt;
   }
 
-  event AutomationSet(uint256 vaultId, AutomatedVault autoVault);
+  event AutomationSet(uint256 indexed vaultId, AutomatedVault autoVault);
 
   function setAutomation(uint256 vaultId, AutomatedVault calldata autoParams) external;
 
   function a() external view returns (IAddressProvider);
 
-  function proxyRegistry() external view returns (IMIMOProxyRegistry);
+  function proxyFactory() external view returns (IMIMOProxyFactory);
 
   function getAutomatedVault(uint256 vaultId) external view returns (AutomatedVault memory);
 

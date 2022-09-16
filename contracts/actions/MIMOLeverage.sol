@@ -1,47 +1,49 @@
-// SPDX-License-Identifier: Unlicense
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.10;
 
-import "./MIMOFlashloan.sol";
+import "./MIMOFlashLoan.sol";
 import "./MIMOSwap.sol";
+import "./MIMOPausable.sol";
 import "./interfaces/IMIMOLeverage.sol";
 import "../core/interfaces/IVaultsCore.sol";
 import "../proxy/interfaces/IMIMOProxy.sol";
+import "../proxy/interfaces/IMIMOProxyFactory.sol";
+import { Errors } from "../libraries/Errors.sol";
 
-/**
-  @title A SuperVault V2 action contract that can be used to leverage collateral on the MIMO protocol
-  @notice Should only be accessed through a MIMOProxy delegateCall
- */
-contract MIMOLeverage is MIMOFlashloan, MIMOSwap, IMIMOLeverage {
+contract MIMOLeverage is MIMOPausable, MIMOFlashLoan, MIMOSwap, IMIMOLeverage {
   using SafeERC20 for IERC20;
 
-  IMIMOProxyRegistry public immutable proxyRegistry;
+  /// @notice storing address(this) as an immutable variable to be able to access it within delegatecall
+  address private immutable _contractAddress;
+  IMIMOProxyFactory public immutable override proxyFactory;
 
-  /**
-    @param _a The addressProvider for the MIMO protocol
-    @param _dexAP The dexAddressProvider for the MIMO protocol
-    @param _lendingPool The AAVE lending pool used for flashloans
-    @param _proxyRegistry The MIMOProxyRegistry used to verify access control
-   */
+  modifier whenNotPaused() override {
+    if (MIMOPausable(_contractAddress).paused()) {
+      revert Errors.PAUSED();
+    }
+    _;
+  }
+
   constructor(
     IAddressProvider _a,
     IDexAddressProvider _dexAP,
     IPool _lendingPool,
-    IMIMOProxyRegistry _proxyRegistry
-  ) MIMOFlashloan(_lendingPool) MIMOSwap(_a, _dexAP) {
-    if (address(_proxyRegistry) == address(0)) {
-      revert CustomErrors.CANNOT_SET_TO_ADDRESS_ZERO();
+    IMIMOProxyFactory _proxyFactory
+  ) MIMOFlashLoan(_lendingPool) MIMOSwap(_a, _dexAP) {
+    if (address(_proxyFactory) == address(0)) {
+      revert Errors.CANNOT_SET_TO_ADDRESS_ZERO();
     }
-    proxyRegistry = _proxyRegistry;
+    proxyFactory = _proxyFactory;
+    _contractAddress = address(this);
   }
 
   /**
     @notice Leverage an asset using a flashloan to balance collateral
     @notice Vault must have been created though a MIMOProxy
-    @dev Should be called by MIMOProxy through a delegatecall 
     @dev Uses an AAVE V3 flashLoan that will call executeOperation
     @param _calldata Bytes containing depositAmount, stablex swapAmount, struct FlashloanDat data and struc SwapData
    */
-  function executeAction(bytes calldata _calldata) external override {
+  function executeAction(bytes calldata _calldata) external override whenNotPaused {
     (uint256 depositAmount, uint256 swapAmount, FlashLoanData memory flData, SwapData memory swapData) = abi.decode(
       _calldata,
       (uint256, uint256, FlashLoanData, SwapData)
@@ -57,13 +59,14 @@ contract MIMOLeverage is MIMOFlashloan, MIMOSwap, IMIMOLeverage {
   }
 
   /**
-    @notice Executes a leverage operation after taking a flashloan 
+    @notice Executes an leverage operation after taking a flashloan
     @dev Integrates with AAVE V3 flashLoans
     @param assets Address array with one element corresponding to the address of the leveraged asset
     @param amounts Uint array with one element corresponding to the amount of the leveraged asset
     @param premiums Uint array with one element corresponding to the flashLoan fees
     @param initiator Initiator of the flashloan; can only be MIMOProxy owner
     @param params Bytes sent by this contract containing MIMOProxy owner, stablex swap amount and swap data
+    @return True if success and False if failed
    */
   function executeOperation(
     address[] calldata assets,
@@ -71,15 +74,15 @@ contract MIMOLeverage is MIMOFlashloan, MIMOSwap, IMIMOLeverage {
     uint256[] calldata premiums,
     address initiator,
     bytes calldata params
-  ) external override returns (bool) {
+  ) external override whenNotPaused returns (bool) {
     (address owner, uint256 swapAmount, SwapData memory swapData) = abi.decode(params, (address, uint256, SwapData));
-    IMIMOProxy mimoProxy = IMIMOProxy(proxyRegistry.getCurrentProxy(owner));
+    IMIMOProxy mimoProxy = proxyFactory.getCurrentProxy(owner);
 
     if (initiator != address(mimoProxy)) {
-      revert CustomErrors.INITIATOR_NOT_AUTHORIZED(initiator, address(mimoProxy));
+      revert Errors.INITIATOR_NOT_AUTHORIZED(initiator, address(mimoProxy));
     }
     if (msg.sender != address(lendingPool)) {
-      revert CustomErrors.CALLER_NOT_LENDING_POOL(msg.sender, address(lendingPool));
+      revert Errors.CALLER_NOT_LENDING_POOL(msg.sender, address(lendingPool));
     }
 
     IERC20 asset = IERC20(assets[0]);
@@ -114,7 +117,7 @@ contract MIMOLeverage is MIMOFlashloan, MIMOSwap, IMIMOLeverage {
     uint256 swapAmount,
     uint256 flashloanRepayAmount,
     SwapData calldata swapData
-  ) external override {
+  ) external override whenNotPaused {
     IVaultsCore core = a.core();
     uint256 collateralBalanceBefore = token.balanceOf(address(this));
 
@@ -127,7 +130,9 @@ contract MIMOLeverage is MIMOFlashloan, MIMOSwap, IMIMOLeverage {
 
     uint256 collateralBalanceAfter = token.balanceOf(address(this));
 
-    require(collateralBalanceAfter >= flashloanRepayAmount, Errors.CANNOT_REPAY_FLASHLOAN);
+    if (flashloanRepayAmount > collateralBalanceAfter) {
+      revert Errors.CANNOT_REPAY_FLASHLOAN();
+    }
 
     if (collateralBalanceAfter > flashloanRepayAmount) {
       token.safeIncreaseAllowance(address(core), collateralBalanceAfter - flashloanRepayAmount);

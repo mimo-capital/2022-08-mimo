@@ -1,8 +1,8 @@
-// SPDX-License-Identifier: Unlicense
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.10;
 
 import "./interfaces/IMIMOManagedAction.sol";
-import { CustomErrors } from "../../libraries/CustomErrors.sol";
+import { Errors } from "../../libraries/Errors.sol";
 import "../../core/interfaces/IAddressProvider.sol";
 import "../../libraries/WadRayMath.sol";
 
@@ -10,18 +10,18 @@ contract MIMOManagedAction is IMIMOManagedAction {
   using WadRayMath for uint256;
 
   IAddressProvider public immutable a;
-  IMIMOProxyRegistry public immutable proxyRegistry;
+  IMIMOProxyFactory public immutable proxyFactory;
 
   mapping(uint256 => ManagedVault) internal _managedVaults;
   mapping(uint256 => uint256) internal _operationTracker;
   mapping(address => bool) internal _managers;
 
-  constructor(IAddressProvider _a, IMIMOProxyRegistry _proxyRegistry) {
-    if (address(_a) == address(0) || address(_proxyRegistry) == address(0)) {
-      revert CustomErrors.CANNOT_SET_TO_ADDRESS_ZERO();
+  constructor(IAddressProvider _a, IMIMOProxyFactory _proxyFactory) {
+    if (address(_a) == address(0) || address(_proxyFactory) == address(0)) {
+      revert Errors.CANNOT_SET_TO_ADDRESS_ZERO();
     }
     a = _a;
-    proxyRegistry = _proxyRegistry;
+    proxyFactory = _proxyFactory;
   }
 
   /**
@@ -32,13 +32,13 @@ contract MIMOManagedAction is IMIMOManagedAction {
    */
   function setManagement(uint256 vaultId, ManagedVault calldata mgtParams) external override {
     address vaultOwner = a.vaultsData().vaultOwner(vaultId);
-    address mimoProxy = address(proxyRegistry.getCurrentProxy(msg.sender));
+    address mimoProxy = address(proxyFactory.getCurrentProxy(msg.sender));
 
     if (mimoProxy != vaultOwner && vaultOwner != msg.sender) {
-      revert CustomErrors.CALLER_NOT_VAULT_OWNER(mimoProxy, vaultOwner);
+      revert Errors.CALLER_NOT_VAULT_OWNER(mimoProxy, vaultOwner);
     }
     if (!_managers[mgtParams.manager]) {
-      revert CustomErrors.MANAGER_NOT_LISTED();
+      revert Errors.MANAGER_NOT_LISTED();
     }
 
     _managedVaults[vaultId] = mgtParams;
@@ -56,7 +56,7 @@ contract MIMOManagedAction is IMIMOManagedAction {
     IAccessController controller = a.controller();
 
     if (!controller.hasRole(controller.MANAGER_ROLE(), msg.sender)) {
-      revert CustomErrors.CALLER_NOT_PROTOCOL_MANAGER();
+      revert Errors.CALLER_NOT_PROTOCOL_MANAGER();
     }
 
     _managers[manager] = isManager;
@@ -65,6 +65,7 @@ contract MIMOManagedAction is IMIMOManagedAction {
   }
 
   /**
+    @param vaultId Vault id of the queried vault
     @return ManagedVault struct of a specific vault id
    */
   function getManagedVault(uint256 vaultId) external view override returns (ManagedVault memory) {
@@ -72,6 +73,7 @@ contract MIMOManagedAction is IMIMOManagedAction {
   }
 
   /**
+    @param vaultId Vault id of the queried vault
     @return Timestamp of the last performed operation
    */
   function getOperationTracker(uint256 vaultId) external view override returns (uint256) {
@@ -79,6 +81,7 @@ contract MIMOManagedAction is IMIMOManagedAction {
   }
 
   /**
+    @param manager Manager address
     @return Bool value indicating if an address is allowed to manage user vaults or not
    */
   function getManager(address manager) external view override returns (bool) {
@@ -87,6 +90,7 @@ contract MIMOManagedAction is IMIMOManagedAction {
 
   /**
     @notice Helper function calculating LTV ratio
+    @param vaultId Vault id of the queried vault
     @return Vault collateral value / vault debt
    */
   function _getVaultRatio(uint256 vaultId) internal view returns (uint256) {
@@ -110,6 +114,9 @@ contract MIMOManagedAction is IMIMOManagedAction {
 
   /**
     @notice Helper function determining if a vault value variation is within vault's management parameters
+    @param managedVault ManagedVault struct of the vault being rebalanced
+    @param rebalanceValue Value of the rebalanced collateral amount in stablex
+    @param swapResultValue Collateral value in stablex after swap
     @return True if value change is below allowedVariation and false if it is above
    */
   function _isVaultVariationAllowed(

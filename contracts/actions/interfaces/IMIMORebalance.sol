@@ -1,8 +1,9 @@
-// SPDX-License-Identifier: Unlicense
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.10;
 
 import "./IMIMOSwap.sol";
 import "./IMIMOProxyAction.sol";
+import "../../proxy/interfaces/IMIMOProxyFactory.sol";
 
 interface IMIMORebalance is IMIMOProxyAction, IMIMOSwap {
   struct RebalanceData {
@@ -19,4 +20,6 @@ interface IMIMORebalance is IMIMOProxyAction, IMIMOSwap {
     RebalanceData calldata rbData,
     SwapData calldata swapData
   ) external;
+
+  function proxyFactory() external view returns (IMIMOProxyFactory);
 }

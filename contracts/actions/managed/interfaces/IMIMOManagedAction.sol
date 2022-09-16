@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Unlicense
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.10;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -6,7 +6,7 @@ import { IPool } from "@aave/core-v3/contracts/interfaces/IPool.sol";
 
 import "../../../core/interfaces/IAddressProvider.sol";
 import "../../../core/dex/interfaces/IDexAddressProvider.sol";
-import "../../../proxy/interfaces/IMIMOProxyRegistry.sol";
+import "../../../proxy/interfaces/IMIMOProxyFactory.sol";
 
 interface IMIMOManagedAction {
   struct ManagedVault {
@@ -20,7 +20,8 @@ interface IMIMOManagedAction {
   }
 
   event ManagerSet(address manager, bool isManager);
-  event ManagementSet(uint256 vaultId, ManagedVault managedVault);
+
+  event ManagementSet(uint256 indexed vaultId, ManagedVault managedVault);
 
   function setManagement(uint256 vaultId, ManagedVault calldata mgtParams) external;
 
@@ -28,7 +29,7 @@ interface IMIMOManagedAction {
 
   function a() external view returns (IAddressProvider);
 
-  function proxyRegistry() external view returns (IMIMOProxyRegistry);
+  function proxyFactory() external view returns (IMIMOProxyFactory);
 
   function getManagedVault(uint256 vaultId) external view returns (ManagedVault memory);
 

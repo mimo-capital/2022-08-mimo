@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Unlicense
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.10;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -7,7 +7,7 @@ import { IPool } from "@aave/core-v3/contracts/interfaces/IPool.sol";
 import "./IMIMOProxyAction.sol";
 import "../../core/interfaces/IAddressProvider.sol";
 
-interface IMIMOFlashloan {
+interface IMIMOFlashLoan {
   struct FlashLoanData {
     address asset;
     address proxyAction;
