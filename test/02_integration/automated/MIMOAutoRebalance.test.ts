@@ -1,124 +1,47 @@
 import chai, { expect } from "chai";
 import { solidity } from "ethereum-waffle";
+import { BigNumber } from "ethers";
 import { deployments, ethers, network } from "hardhat";
-import { ADDRESSES } from "../../../config/addresses";
-import { POLYGON_ENDPOINT } from "../../../hardhat.config";
-import {
-  IAddressProvider,
-  IConfigProvider,
-  IERC20,
-  IPriceFeed,
-  ISTABLEX,
-  IVaultsCore,
-  IVaultsDataProvider,
-  IWETH,
-  MIMOAutoRebalance,
-  MIMOProxy,
-  MIMOProxyRegistry,
-  MIMORebalance,
-} from "../../../typechain";
-import { MIMOVaultActions } from "../../../typechain/MIMOVaultActions";
-import { getOneInchTxData, getSelector, OneInchSwapParams } from "../../utils";
+import { getOneInchTxData, getSelector, OneInchSwapParams, WAD, wadDivBN, wadMulBN } from "../../utils";
+import { baseSetup } from "../baseFixture";
 
 chai.use(solidity);
 
 const DEPOSIT_AMOUNT = ethers.utils.parseEther("1000");
-const WAD = ethers.utils.parseEther("1");
+const PERCENTAGE_FACTOR = ethers.BigNumber.from(1e4);
 
 const setup = deployments.createFixture(async () => {
-  const [owner, rebalancer] = await ethers.getSigners();
-  const chainAddresses = ADDRESSES["137"];
-  process.env.FORK_ID = "137";
-
-  // Fork polygon mainnet
-  await network.provider.request({
-    method: "hardhat_reset",
-    params: [
-      {
-        forking: {
-          jsonRpcUrl: POLYGON_ENDPOINT,
-        },
-      },
-    ],
-  });
-
-  // Impersonate multisig
-  await network.provider.request({
-    method: "hardhat_impersonateAccount",
-    params: [chainAddresses.MULTISIG],
-  });
-  const multisig = await ethers.getSigner(chainAddresses.MULTISIG);
-
-  // Deploy Proxy contracts
-  await deployments.fixture(["Proxy", "MIMOAutoRebalance", "MIMOVaultActions"]);
-
-  // Fetch contracts
-  const addressProvider: IAddressProvider = await ethers.getContractAt(
-    "IAddressProvider",
-    chainAddresses.ADDRESS_PROVIDER,
-  );
-  const [vaultsCoreAddress, vaultsDataProviderAddress, priceFeedAddress, stablexAddress, configProviderAddress] =
-    await Promise.all([
-      addressProvider.core(),
-      addressProvider.vaultsData(),
-      addressProvider.priceFeed(),
-      addressProvider.stablex(),
-      addressProvider.config(),
-    ]);
-
-  const [
+  const {
+    owner,
+    multisig,
     vaultsCore,
     vaultsDataProvider,
     priceFeed,
     stablex,
     wmatic,
     usdc,
-    mimoProxyRegistry,
+    mimoProxy,
     configProvider,
-    vaultActions,
-    rebalance,
-    autoRebalance,
-  ] = (await Promise.all([
-    ethers.getContractAt("IVaultsCore", vaultsCoreAddress),
-    ethers.getContractAt("IVaultsDataProvider", vaultsDataProviderAddress),
-    ethers.getContractAt("IPriceFeed", priceFeedAddress),
-    ethers.getContractAt("ISTABLEX", stablexAddress),
-    ethers.getContractAt("IWETH", chainAddresses.WMATIC),
-    ethers.getContractAt("IERC20", chainAddresses.USDC),
-    ethers.getContract("MIMOProxyRegistry"),
-    ethers.getContractAt("IConfigProvider", configProviderAddress),
-    ethers.getContract("MIMOVaultActions"),
-    ethers.getContract("MIMORebalance"),
-    ethers.getContract("MIMOAutoRebalance"),
-  ])) as [
-    IVaultsCore,
-    IVaultsDataProvider,
-    IPriceFeed,
-    ISTABLEX,
-    IWETH,
-    IERC20,
-    MIMOProxyRegistry,
-    IConfigProvider,
-    MIMOVaultActions,
-    MIMORebalance,
-    MIMOAutoRebalance,
-  ];
+    mimoVaultActions,
+    mimoRebalance,
+    mimoAutoRebalance,
+    mimoProxyActions,
+    mimoProxyGuard,
+    premium,
+  } = await baseSetup();
 
-  await mimoProxyRegistry.deploy();
-  const deployedMIMOProxy = await mimoProxyRegistry.getCurrentProxy(owner.address);
-  const mimoProxy: MIMOProxy = await ethers.getContractAt("MIMOProxy", deployedMIMOProxy);
-
-  // Set managers
-  await owner.sendTransaction({ to: multisig.address, value: ethers.utils.parseEther("20") });
+  const [, rebalancer] = await ethers.getSigners();
 
   // Create vault to be rebalanced 5% below trigger ratio i.e 255%
   const depositValue = await priceFeed.convertFrom(wmatic.address, DEPOSIT_AMOUNT);
   const borrowAmount = depositValue.mul(100).div(255);
+
   await mimoProxy.execute(
-    vaultActions.address,
-    vaultActions.interface.encodeFunctionData("depositETHAndBorrow", [borrowAmount]),
+    mimoVaultActions.address,
+    mimoVaultActions.interface.encodeFunctionData("depositETHAndBorrow", [borrowAmount]),
     { value: DEPOSIT_AMOUNT },
   );
+
   const vaultId = await vaultsDataProvider.vaultId(wmatic.address, mimoProxy.address);
 
   // Set permission and automation parameters
@@ -129,31 +52,32 @@ const setup = deployments.createFixture(async () => {
     targetRatio: ethers.utils.parseEther("2.7"),
     triggerRatio: ethers.utils.parseEther("2.6"),
     mcrBuffer: ethers.utils.parseEther("0.1"),
-    fixedFee: 0,
-    varFee: 0,
+    fixedFee: ethers.constants.Zero,
+    varFee: ethers.constants.Zero,
   };
-  await mimoProxy.batch(
-    [
-      mimoProxy.interface.encodeFunctionData("setPermission", [
-        autoRebalance.address,
-        rebalance.address,
-        getSelector(
-          rebalance.interface.functions[
-            "rebalanceOperation(address,uint256,uint256,uint256,(address,uint256,uint256),(uint256,bytes))"
-          ].format(),
-        ),
-        true,
-      ]),
-      mimoProxy.interface.encodeFunctionData("multicall", [
-        [autoRebalance.address],
-        [autoRebalance.interface.encodeFunctionData("setAutomation", [vaultId, autoVault])],
-      ]),
-    ],
-    true,
+
+  await mimoProxy.execute(
+    mimoProxyActions.address,
+    mimoProxyActions.interface.encodeFunctionData("multicall", [
+      [mimoProxyGuard.address, mimoAutoRebalance.address],
+      [
+        mimoProxyGuard.interface.encodeFunctionData("setPermission", [
+          mimoAutoRebalance.address,
+          mimoRebalance.address,
+          getSelector(
+            mimoRebalance.interface.functions[
+              "rebalanceOperation(address,uint256,uint256,uint256,(address,uint256,uint256),(uint256,bytes))"
+            ].format(),
+          ),
+          true,
+        ]),
+        mimoAutoRebalance.interface.encodeFunctionData("setAutomation", [vaultId, autoVault]),
+      ],
+    ]),
   );
 
   // Set automation parameters
-  const amounts = await autoRebalance.getAmounts(vaultId, usdc.address);
+  const amounts = await mimoAutoRebalance.getAmounts(vaultId, usdc.address);
 
   const swapParams: OneInchSwapParams = {
     fromTokenAddress: wmatic.address,
@@ -170,6 +94,25 @@ const setup = deployments.createFixture(async () => {
     dexTxData: data.tx.data,
   };
 
+  const calculateRebalanceValue = (
+    targetRatio: BigNumber,
+    collateralValue: BigNumber,
+    vaultDebt: BigNumber,
+    mcrB: BigNumber,
+    mcrBuffer: BigNumber,
+    fixedFee: BigNumber,
+    varFee: BigNumber,
+  ) => {
+    targetRatio = targetRatio.add(1e15);
+    mcrB = mcrB.add(mcrBuffer);
+    return wadDivBN(
+      wadMulBN(targetRatio, vaultDebt.add(fixedFee)).sub(collateralValue),
+      wadDivBN(targetRatio.mul(PERCENTAGE_FACTOR).sub(mcrB.mul(premium)), mcrB.mul(PERCENTAGE_FACTOR))
+        .sub(wadMulBN(targetRatio, varFee))
+        .sub(WAD),
+    );
+  };
+
   return {
     owner,
     rebalancer,
@@ -177,61 +120,210 @@ const setup = deployments.createFixture(async () => {
     vaultsCore,
     vaultsDataProvider,
     wmatic,
-    rebalance,
+    mimoRebalance,
     priceFeed,
     stablex,
     usdc,
     vaultId,
-    autoRebalance,
+    mimoAutoRebalance,
     multisig,
-    vaultActions,
+    mimoVaultActions,
     autoVault,
     configProvider,
     swapData,
     amounts,
+    mimoProxyActions,
+    premium,
+    calculateRebalanceValue,
   };
 });
 
-describe("--- MIMOAutoRebalance Integration Test ---", () => {
-  it("should calculate rebalance and mint amount correctly", async () => {
-    const { autoRebalance, vaultId, usdc, autoVault, configProvider, priceFeed, vaultsDataProvider, wmatic } =
-      await setup();
-    const amounts = await autoRebalance.getAmounts(vaultId, usdc.address);
-    const { mcrBuffer, targetRatio } = autoVault;
-    const collateralValue = await priceFeed.convertFrom(wmatic.address, DEPOSIT_AMOUNT);
+describe("--- MIMOAutoRebalance Integration Test ---", function () {
+  this.retries(5);
+  it("should calculate mimoRebalance and mint amount correctly without fees", async () => {
+    const {
+      mimoAutoRebalance,
+      vaultId,
+      usdc,
+      autoVault,
+      configProvider,
+      priceFeed,
+      vaultsDataProvider,
+      wmatic,
+      calculateRebalanceValue,
+    } = await setup();
+    const { mcrBuffer, targetRatio, fixedFee, varFee } = autoVault;
     const usdcMcr = await configProvider.collateralMinCollateralRatio(usdc.address);
     const vaultDebt = await vaultsDataProvider.vaultDebt(vaultId);
-    const _targetRatio = targetRatio.add(1e15);
-    const e1 = _targetRatio.mul(vaultDebt);
-    const e2 = e1.sub(collateralValue.mul(WAD));
-    const e3 = _targetRatio.mul(WAD).div(usdcMcr.add(mcrBuffer)).sub(WAD);
-    const rebalanceValue = e2.div(e3);
+    const collateralValue = await priceFeed.convertFrom(wmatic.address, DEPOSIT_AMOUNT);
+    const amounts = await mimoAutoRebalance.getAmounts(vaultId, usdc.address);
+    const rebalanceValue = calculateRebalanceValue(
+      targetRatio,
+      collateralValue,
+      vaultDebt,
+      usdcMcr,
+      mcrBuffer,
+      fixedFee,
+      varFee,
+    );
     const rebalanceAmount = await priceFeed.convertTo(wmatic.address, rebalanceValue);
     const mintAmount = rebalanceValue.mul(WAD).div(usdcMcr.add(mcrBuffer));
-    expect(Number(amounts.rebalanceAmount.sub(rebalanceAmount))).to.be.closeTo(0, 50);
-    expect(Number(amounts.mintAmount.sub(mintAmount))).to.be.closeTo(0, 50);
+    expect(amounts.rebalanceAmount).to.be.closeTo(rebalanceAmount, 1);
+    expect(amounts.mintAmount).to.be.closeTo(mintAmount, 1);
   });
-  it("should be able to rebalance from WMATIC to USDC without fee", async () => {
-    const { mimoProxy, usdc, vaultId, vaultsDataProvider, autoRebalance, swapData, amounts } = await setup();
+  it("should calculate mimoRebalance and mint amount correctly with fixed fee", async () => {
+    const {
+      mimoAutoRebalance,
+      vaultId,
+      usdc,
+      configProvider,
+      priceFeed,
+      vaultsDataProvider,
+      wmatic,
+      calculateRebalanceValue,
+    } = await setup();
+    const autoVault = {
+      isAutomated: true,
+      toCollateral: usdc.address,
+      allowedVariation: ethers.utils.parseEther("0.01"),
+      targetRatio: ethers.utils.parseEther("2.7"),
+      triggerRatio: ethers.utils.parseEther("2.6"),
+      mcrBuffer: ethers.utils.parseEther("0.1"),
+      fixedFee: ethers.utils.parseEther("5"),
+      varFee: ethers.constants.Zero,
+    };
+    await mimoAutoRebalance.setAutomation(vaultId, autoVault);
+    const amounts = await mimoAutoRebalance.getAmounts(vaultId, usdc.address);
+    const { mcrBuffer, targetRatio, fixedFee, varFee } = autoVault;
+    const usdcMcr = await configProvider.collateralMinCollateralRatio(usdc.address);
+    const vaultDebt = await vaultsDataProvider.vaultDebt(vaultId);
+    const collateralValue = await priceFeed.convertFrom(wmatic.address, DEPOSIT_AMOUNT);
+    const rebalanceValue = calculateRebalanceValue(
+      targetRatio,
+      collateralValue,
+      vaultDebt,
+      usdcMcr,
+      mcrBuffer,
+      fixedFee,
+      varFee,
+    );
+    const rebalanceAmount = await priceFeed.convertTo(wmatic.address, rebalanceValue);
+    const mintAmount = rebalanceValue.mul(WAD).div(usdcMcr.add(mcrBuffer));
+    expect(amounts.rebalanceAmount).to.be.closeTo(rebalanceAmount, 1);
+    expect(amounts.mintAmount).to.be.closeTo(mintAmount, 1);
+  });
+  it("should calculate mimoRebalance and mint amount correctly with variable fee", async () => {
+    const {
+      mimoAutoRebalance,
+      vaultId,
+      usdc,
+      configProvider,
+      priceFeed,
+      vaultsDataProvider,
+      wmatic,
+      calculateRebalanceValue,
+    } = await setup();
+    const autoVault = {
+      isAutomated: true,
+      toCollateral: usdc.address,
+      allowedVariation: ethers.utils.parseEther("0.01"),
+      targetRatio: ethers.utils.parseEther("2.7"),
+      triggerRatio: ethers.utils.parseEther("2.6"),
+      mcrBuffer: ethers.utils.parseEther("0.1"),
+      fixedFee: ethers.constants.Zero,
+      varFee: ethers.utils.parseEther("0.02"), // 2%
+    };
+    await mimoAutoRebalance.setAutomation(vaultId, autoVault);
+    const amounts = await mimoAutoRebalance.getAmounts(vaultId, usdc.address);
+    const { mcrBuffer, targetRatio, fixedFee, varFee } = autoVault;
+    const usdcMcr = await configProvider.collateralMinCollateralRatio(usdc.address);
+    const vaultDebt = await vaultsDataProvider.vaultDebt(vaultId);
+    const collateralValue = await priceFeed.convertFrom(wmatic.address, DEPOSIT_AMOUNT);
+    const rebalanceValue = calculateRebalanceValue(
+      targetRatio,
+      collateralValue,
+      vaultDebt,
+      usdcMcr,
+      mcrBuffer,
+      fixedFee,
+      varFee,
+    );
+    const rebalanceAmount = await priceFeed.convertTo(wmatic.address, rebalanceValue);
+    const mintAmount = rebalanceValue.mul(WAD).div(usdcMcr.add(mcrBuffer));
+    expect(amounts.rebalanceAmount).to.be.closeTo(rebalanceAmount, 1);
+    expect(amounts.mintAmount).to.be.closeTo(mintAmount, 1);
+  });
+  it("should calculate mimoRebalance and mint amount correctly with variable fee and fixedFee", async () => {
+    const {
+      mimoAutoRebalance,
+      vaultId,
+      usdc,
+      configProvider,
+      priceFeed,
+      vaultsDataProvider,
+      wmatic,
+      calculateRebalanceValue,
+    } = await setup();
+    const autoVault = {
+      isAutomated: true,
+      toCollateral: usdc.address,
+      allowedVariation: ethers.utils.parseEther("0.01"),
+      targetRatio: ethers.utils.parseEther("2.7"),
+      triggerRatio: ethers.utils.parseEther("2.6"),
+      mcrBuffer: ethers.utils.parseEther("0.1"),
+      fixedFee: ethers.utils.parseEther("5"),
+      varFee: ethers.utils.parseEther("0.02"), // 2%
+    };
+    await mimoAutoRebalance.setAutomation(vaultId, autoVault);
+    const amounts = await mimoAutoRebalance.getAmounts(vaultId, usdc.address);
+    const { mcrBuffer, targetRatio, fixedFee, varFee } = autoVault;
+    const usdcMcr = await configProvider.collateralMinCollateralRatio(usdc.address);
+    const vaultDebt = await vaultsDataProvider.vaultDebt(vaultId);
+    const collateralValue = await priceFeed.convertFrom(wmatic.address, DEPOSIT_AMOUNT);
+    const rebalanceValue = calculateRebalanceValue(
+      targetRatio,
+      collateralValue,
+      vaultDebt,
+      usdcMcr,
+      mcrBuffer,
+      fixedFee,
+      varFee,
+    );
+    const rebalanceAmount = await priceFeed.convertTo(wmatic.address, rebalanceValue);
+    const mintAmount = rebalanceValue.mul(WAD).div(usdcMcr.add(mcrBuffer));
+    expect(amounts.rebalanceAmount).to.be.closeTo(rebalanceAmount, 50);
+    expect(amounts.mintAmount).to.be.closeTo(mintAmount, 50);
+  });
+  it("should be able to mimoRebalance from WMATIC to USDC without fee", async () => {
+    const { mimoProxy, usdc, vaultId, vaultsDataProvider, mimoAutoRebalance, swapData, amounts } = await setup();
     const { rebalanceAmount } = amounts;
     const usdcVautIdBefore = await vaultsDataProvider.vaultId(usdc.address, mimoProxy.address);
     const wmaticCollateralBalanceBefore = await vaultsDataProvider.vaultCollateralBalance(vaultId);
-    const tx = await autoRebalance.rebalance(vaultId, swapData);
+    const tx = await mimoAutoRebalance.rebalance(vaultId, swapData);
     const receipt = await tx.wait(1);
     const block = await ethers.provider.getBlock(receipt.blockNumber);
-    console.log("Auto rebalance gas used with 1inch : ", receipt.gasUsed.toString());
+    console.log("Auto mimoRebalance gas used with 1inch : ", receipt.gasUsed.toString());
     const wmaticCollateralBalanceAfter = await vaultsDataProvider.vaultCollateralBalance(vaultId);
     const usdcVaultIdAfter = await vaultsDataProvider.vaultId(usdc.address, mimoProxy.address);
-    const operatioTracker = await autoRebalance.getOperationTracker(vaultId);
+    const operatioTracker = await mimoAutoRebalance.getOperationTracker(vaultId);
     expect(usdcVautIdBefore).to.be.equal(ethers.constants.Zero);
     expect(usdcVaultIdAfter).to.be.gt(ethers.constants.Zero);
     expect(wmaticCollateralBalanceBefore).to.be.equal(DEPOSIT_AMOUNT);
     expect(Number(wmaticCollateralBalanceAfter)).to.be.closeTo(Number(DEPOSIT_AMOUNT.sub(rebalanceAmount)), 5e16);
     expect(operatioTracker).to.be.equal(block.timestamp);
   });
-  it("should be able to rebalance from WMATIC to USDC without fee with already existing USDC vault", async () => {
-    const { mimoProxy, usdc, vaultId, vaultsDataProvider, autoRebalance, swapData, amounts, owner, vaultActions } =
-      await setup();
+  it("should be able to mimoRebalance from WMATIC to USDC without fee with already existing USDC vault", async () => {
+    const {
+      mimoProxy,
+      usdc,
+      vaultId,
+      vaultsDataProvider,
+      mimoAutoRebalance,
+      swapData,
+      amounts,
+      owner,
+      mimoVaultActions,
+    } = await setup();
 
     // Impresonate BinanceWallet to get USDC
     const usdcDepositAmount = ethers.utils.parseUnits("100", 6);
@@ -247,8 +339,8 @@ describe("--- MIMOAutoRebalance Integration Test ---", () => {
 
     // Open USDC vault
     await mimoProxy.execute(
-      vaultActions.address,
-      vaultActions.interface.encodeFunctionData("depositAndBorrow", [
+      mimoVaultActions.address,
+      mimoVaultActions.interface.encodeFunctionData("depositAndBorrow", [
         usdc.address,
         usdcDepositAmount,
         usdcVaultMintAmount,
@@ -259,7 +351,7 @@ describe("--- MIMOAutoRebalance Integration Test ---", () => {
     const usdcVaultId = await vaultsDataProvider.vaultId(usdc.address, mimoProxy.address);
     const usdcVaultCollateralBalanceBefore = await vaultsDataProvider.vaultCollateralBalance(usdcVaultId);
     const usdcVaultDebtBefore = await vaultsDataProvider.vaultDebt(usdcVaultId);
-    await autoRebalance.rebalance(vaultId, swapData);
+    await mimoAutoRebalance.rebalance(vaultId, swapData);
     const wmaticCollateralBalanceAfter = await vaultsDataProvider.vaultCollateralBalance(vaultId);
     expect(usdcVaultId).to.be.gt(ethers.constants.Zero);
     expect(usdcVaultDebtBefore).to.be.gt(ethers.constants.Zero);
@@ -267,20 +359,20 @@ describe("--- MIMOAutoRebalance Integration Test ---", () => {
     expect(wmaticCollateralBalanceBefore).to.be.equal(DEPOSIT_AMOUNT);
     expect(Number(wmaticCollateralBalanceAfter)).to.be.closeTo(Number(DEPOSIT_AMOUNT.sub(rebalanceAmount)), 5e16);
   });
-  it("should be able to rebalance with variable fee", async () => {
+  it("should be able to mimoRebalance with variable fee", async () => {
     const {
       mimoProxy,
       usdc,
       vaultId,
       vaultsDataProvider,
-      autoRebalance,
+      mimoAutoRebalance,
       stablex,
       configProvider,
       rebalancer,
       wmatic,
       priceFeed,
     } = await setup();
-    await autoRebalance.setAutomation(vaultId, {
+    await mimoAutoRebalance.setAutomation(vaultId, {
       isAutomated: true,
       toCollateral: usdc.address,
       allowedVariation: ethers.utils.parseEther("0.01"),
@@ -290,11 +382,12 @@ describe("--- MIMOAutoRebalance Integration Test ---", () => {
       fixedFee: 0,
       varFee: ethers.utils.parseEther("0.1"), // 10%
     });
-    const amounts = await autoRebalance.getAmounts(vaultId, usdc.address);
+    const amounts = await mimoAutoRebalance.getAmounts(vaultId, usdc.address);
+    const { rebalanceAmount, mintAmount } = amounts;
     const swapParams: OneInchSwapParams = {
       fromTokenAddress: wmatic.address,
       toTokenAddress: usdc.address,
-      amount: amounts.rebalanceAmount.toString(),
+      amount: rebalanceAmount.toString(),
       fromAddress: mimoProxy.address,
       slippage: 1,
       disableEstimate: true,
@@ -304,32 +397,33 @@ describe("--- MIMOAutoRebalance Integration Test ---", () => {
       dexIndex: 1,
       dexTxData: data.tx.data,
     };
-    await autoRebalance.connect(rebalancer).rebalance(vaultId, swapData);
+    await mimoAutoRebalance.connect(rebalancer).rebalance(vaultId, swapData);
     const usdcVaultId = await vaultsDataProvider.vaultId(usdc.address, mimoProxy.address);
     const usdcVaultDebt = await vaultsDataProvider.vaultDebt(usdcVaultId);
     const rebalancerStablexBalance = await stablex.balanceOf(rebalancer.address);
     const usdcOriginationFee = await configProvider.collateralOriginationFee(usdc.address);
-    const autoFeeAmount = amounts.rebalanceAmount.mul(ethers.utils.parseEther("0.1")).div(WAD);
+    const autoFeeAmount = wadMulBN(rebalanceAmount, ethers.utils.parseEther("0.1"));
     const autoFeeValue = await priceFeed.convertFrom(wmatic.address, autoFeeAmount);
-    const totalMinted = amounts.mintAmount.add(autoFeeValue);
-    const totalDebt = totalMinted.add(totalMinted.mul(usdcOriginationFee).div(WAD));
-    expect(Number(usdcVaultDebt.sub(totalDebt))).to.be.closeTo(0, 2);
-    expect(Number(rebalancerStablexBalance.sub(autoFeeValue))).to.be.closeTo(0, 2);
+    expect(usdcVaultDebt.sub(wadMulBN(usdcVaultDebt, usdcOriginationFee))).to.be.closeTo(
+      mintAmount,
+      ethers.utils.parseEther("0.01"),
+    );
+    expect(rebalancerStablexBalance).to.be.closeTo(autoFeeValue, 1);
   });
-  it("should be able to rebalance with fixed feed + variable fee", async () => {
+  it("should be able to mimoRebalance with fixed feed + variable fee", async () => {
     const {
       mimoProxy,
       usdc,
       vaultId,
       vaultsDataProvider,
-      autoRebalance,
+      mimoAutoRebalance,
       stablex,
       configProvider,
       rebalancer,
       wmatic,
       priceFeed,
     } = await setup();
-    await autoRebalance.setAutomation(vaultId, {
+    await mimoAutoRebalance.setAutomation(vaultId, {
       isAutomated: true,
       toCollateral: usdc.address,
       allowedVariation: ethers.utils.parseEther("0.01"),
@@ -339,11 +433,12 @@ describe("--- MIMOAutoRebalance Integration Test ---", () => {
       fixedFee: ethers.utils.parseEther("0.1"),
       varFee: ethers.utils.parseEther("0.1"), // 10%,
     });
-    const amounts = await autoRebalance.getAmounts(vaultId, usdc.address);
+    const amounts = await mimoAutoRebalance.getAmounts(vaultId, usdc.address);
+    const { rebalanceAmount, mintAmount } = amounts;
     const swapParams: OneInchSwapParams = {
       fromTokenAddress: wmatic.address,
       toTokenAddress: usdc.address,
-      amount: amounts.rebalanceAmount.toString(),
+      amount: rebalanceAmount.toString(),
       fromAddress: mimoProxy.address,
       slippage: 1,
       disableEstimate: true,
@@ -353,22 +448,23 @@ describe("--- MIMOAutoRebalance Integration Test ---", () => {
       dexIndex: 1,
       dexTxData: data.tx.data,
     };
-    await autoRebalance.connect(rebalancer).rebalance(vaultId, swapData);
+    await mimoAutoRebalance.connect(rebalancer).rebalance(vaultId, swapData);
     const usdcVaultId = await vaultsDataProvider.vaultId(usdc.address, mimoProxy.address);
     const usdcVaultDebt = await vaultsDataProvider.vaultDebt(usdcVaultId);
     const rebalancerStablexBalance = await stablex.balanceOf(rebalancer.address);
     const usdcOriginationFee = await configProvider.collateralOriginationFee(usdc.address);
-    const varFeeAmount = amounts.rebalanceAmount.mul(ethers.utils.parseEther("0.1")).div(WAD);
+    const varFeeAmount = wadMulBN(rebalanceAmount, ethers.utils.parseEther("0.1"));
     const varFeeValue = await priceFeed.convertFrom(wmatic.address, varFeeAmount);
     const autoFeeValue = varFeeValue.add(ethers.utils.parseEther("0.1"));
-    const totalMinted = amounts.mintAmount.add(autoFeeValue);
-    const totalDebt = totalMinted.add(totalMinted.mul(usdcOriginationFee).div(WAD));
-    expect(Number(usdcVaultDebt.sub(totalDebt))).to.be.closeTo(0, 3);
-    expect(Number(rebalancerStablexBalance.sub(autoFeeValue))).to.be.closeTo(0, 2);
+    expect(usdcVaultDebt.sub(wadMulBN(usdcVaultDebt, usdcOriginationFee))).to.be.closeTo(
+      mintAmount,
+      ethers.utils.parseEther("0.01"),
+    );
+    expect(rebalancerStablexBalance).to.be.closeTo(autoFeeValue, 1);
   });
   it("should revert if vault value variation is greater than set maximum vault variation", async () => {
-    const { usdc, vaultId, autoRebalance, swapData } = await setup();
-    await autoRebalance.setAutomation(vaultId, {
+    const { usdc, vaultId, mimoAutoRebalance, swapData } = await setup();
+    await mimoAutoRebalance.setAutomation(vaultId, {
       isAutomated: true,
       toCollateral: usdc.address,
       allowedVariation: 0,
@@ -378,11 +474,16 @@ describe("--- MIMOAutoRebalance Integration Test ---", () => {
       fixedFee: 0,
       varFee: 0,
     });
-    await expect(autoRebalance.rebalance(vaultId, swapData)).to.be.revertedWith("VAULT_VALUE_CHANGE_TOO_HIGH()");
+    await expect(mimoAutoRebalance.rebalance(vaultId, swapData)).to.be.revertedWith("VAULT_VALUE_CHANGE_TOO_HIGH()");
   });
   it("should revert if operation tracker has reached max daily call limit", async () => {
-    const { vaultId, autoRebalance, swapData } = await setup();
-    await autoRebalance.rebalance(vaultId, swapData);
-    await expect(autoRebalance.rebalance(vaultId, swapData)).to.be.revertedWith("MAX_OPERATIONS_REACHED()");
+    const { vaultId, mimoAutoRebalance, swapData } = await setup();
+    await mimoAutoRebalance.rebalance(vaultId, swapData);
+    await expect(mimoAutoRebalance.rebalance(vaultId, swapData)).to.be.revertedWith("MAX_OPERATIONS_REACHED()");
+  });
+  it("should revert if paused", async () => {
+    const { vaultId, mimoAutoRebalance, swapData } = await setup();
+    await mimoAutoRebalance.pause();
+    await expect(mimoAutoRebalance.rebalance(vaultId, swapData)).to.be.revertedWith("PAUSED()");
   });
 });

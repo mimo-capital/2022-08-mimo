@@ -1,41 +1,22 @@
 import chai, { expect } from "chai";
-import { deployMockContract, solidity } from "ethereum-waffle";
+import { solidity } from "ethereum-waffle";
 import { keccak256 } from "ethers/lib/utils";
-import { artifacts, deployments, ethers } from "hardhat";
-import { MIMOManagedAction, MIMOProxyRegistry } from "../../../typechain";
+import { deployments, ethers } from "hardhat";
+import { MIMOManagedAction } from "../../../typechain";
+import { baseSetup } from "../baseFixture";
 
 chai.use(solidity);
 
 const setup = deployments.createFixture(async () => {
-  await deployments.fixture(["Proxy"]);
-  const { deploy } = deployments;
   const [owner, manager] = await ethers.getSigners();
-
-  // Get artifacts
-  const [addressProviderArtifact, accessControllerArtifact, vaultsDataProviderArtifact] = await Promise.all([
-    artifacts.readArtifact("IAddressProvider"),
-    artifacts.readArtifact("IAccessController"),
-    artifacts.readArtifact("IVaultsDataProvider"),
-  ]);
-
-  // Deploy mock contracts
-  const [addressProvider, accessController, vaultsDataProvider] = await Promise.all([
-    deployMockContract(owner, addressProviderArtifact.abi),
-    deployMockContract(owner, accessControllerArtifact.abi),
-    deployMockContract(owner, vaultsDataProviderArtifact.abi),
-  ]);
-
-  // Deploy and fetch non mock contracts
-  const proxyRegistry: MIMOProxyRegistry = await ethers.getContract("MIMOProxyRegistry");
+  const { addressProvider, accessController, vaultsDataProvider, mimoProxyFactory, mimoProxy, deploy } =
+    await baseSetup();
 
   await deploy("MIMOManagedAction", {
     from: owner.address,
-    args: [addressProvider.address, proxyRegistry.address],
+    args: [addressProvider.address, mimoProxyFactory.address],
   });
   const managedAction: MIMOManagedAction = await ethers.getContract("MIMOManagedAction");
-
-  await proxyRegistry.deploy();
-  const mimoProxyAddress = await proxyRegistry.getCurrentProxy(owner.address);
 
   // Mock required function calls
   await Promise.all([
@@ -43,7 +24,7 @@ const setup = deployments.createFixture(async () => {
     addressProvider.mock.vaultsData.returns(vaultsDataProvider.address),
     accessController.mock.MANAGER_ROLE.returns(keccak256(ethers.utils.toUtf8Bytes("MANAGER_ROLE"))),
     accessController.mock.hasRole.returns(true),
-    vaultsDataProvider.mock.vaultOwner.returns(mimoProxyAddress),
+    vaultsDataProvider.mock.vaultOwner.returns(mimoProxy.address),
   ]);
 
   await managedAction.setManager(manager.address, true);
@@ -54,27 +35,27 @@ const setup = deployments.createFixture(async () => {
     addressProvider,
     accessController,
     vaultsDataProvider,
-    proxyRegistry,
+    mimoProxyFactory,
     managedAction,
     deploy,
-    mimoProxyAddress,
+    mimoProxy,
   };
 });
 
 describe("--- MIMOManagedAction Unit Tests ---", () => {
   it("should initialize state variables correctly", async () => {
-    const { addressProvider, proxyRegistry, managedAction } = await setup();
+    const { addressProvider, mimoProxyFactory, managedAction } = await setup();
     const _addressProvider = await managedAction.a();
-    const _proxyRegistry = await managedAction.proxyRegistry();
+    const _proxyRegistry = await managedAction.proxyFactory();
     expect(_addressProvider).to.be.equal(addressProvider.address);
-    expect(_proxyRegistry).to.be.equal(proxyRegistry.address);
+    expect(_proxyRegistry).to.be.equal(mimoProxyFactory.address);
   });
   it("should revert if trying to set state variables to address 0", async () => {
-    const { addressProvider, proxyRegistry, deploy, owner } = await setup();
+    const { addressProvider, mimoProxyFactory, deploy, owner } = await setup();
     await expect(
       deploy("MIMOManagedAction", {
         from: owner.address,
-        args: [ethers.constants.AddressZero, proxyRegistry.address],
+        args: [ethers.constants.AddressZero, mimoProxyFactory.address],
       }),
     ).to.be.revertedWith("CANNOT_SET_TO_ADDRESS_ZERO()");
     await expect(
@@ -120,7 +101,7 @@ describe("--- MIMOManagedAction Unit Tests ---", () => {
       .withArgs(1, [true, manager.address, ethers.utils.parseUnits("1", 16), ethers.utils.parseUnits("150", 16), 0, 0]);
   });
   it("should revert if trying to setManagement by other than proxy owner", async () => {
-    const { managedAction, manager, mimoProxyAddress } = await setup();
+    const { managedAction, manager, mimoProxy } = await setup();
     await expect(
       managedAction.connect(manager).setManagement(1, {
         isManaged: true,
@@ -131,7 +112,7 @@ describe("--- MIMOManagedAction Unit Tests ---", () => {
         varFee: 0,
         mcrBuffer: ethers.utils.parseUnits("10", 16),
       }),
-    ).to.be.revertedWith(`CALLER_NOT_VAULT_OWNER("${ethers.constants.AddressZero}", "${mimoProxyAddress}")`);
+    ).to.be.revertedWith(`CALLER_NOT_VAULT_OWNER("${ethers.constants.AddressZero}", "${mimoProxy.address}")`);
   });
   it("should revert if trying to set manager to unlisted manager", async () => {
     const { managedAction, owner } = await setup();

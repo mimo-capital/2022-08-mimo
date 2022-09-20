@@ -1,9 +1,9 @@
 import chai, { expect } from "chai";
-import { deployMockContract, solidity } from "ethereum-waffle";
-import { artifacts, deployments, ethers } from "hardhat";
-import { MIMOAutoRebalance } from "../../../typechain";
+import { solidity } from "ethereum-waffle";
+import { deployments, ethers } from "hardhat";
+import { MIMOAutoRebalance, MIMOProxyGuard } from "../../../typechain";
 import { getSelector } from "../../utils";
-import { setup as rebalanceSetUp } from "../MIMORebalance.test";
+import { baseSetup } from "../baseFixture";
 
 chai.use(solidity);
 
@@ -21,33 +21,23 @@ const setup = deployments.createFixture(async () => {
     mimoProxy,
     addressProvider,
     lendingPool,
-    mimoProxyRegistry,
+    mimoProxyFactory,
     vaultsCore,
     vaultsDataProvider,
-    rebalance,
+    mimoRebalance,
     priceFeed,
     stablex,
     wmatic,
     usdc,
     data,
-  } = await rebalanceSetUp();
-
-  // Get artifacts
-  const [accessControllerArtifact, configProviderArtifact] = await Promise.all([
-    artifacts.readArtifact("IAccessController"),
-    artifacts.readArtifact("IConfigProvider"),
-  ]);
-
-  // Deploy mock contracts
-  const [accessController, configProvider] = await Promise.all([
-    deployMockContract(owner, accessControllerArtifact.abi),
-    deployMockContract(owner, configProviderArtifact.abi),
-  ]);
+    accessController,
+    configProvider,
+  } = await baseSetup();
 
   // Deploy and fetch non mock contracts
   await deploy("MIMOAutoRebalance", {
     from: owner.address,
-    args: [addressProvider.address, lendingPool.address, mimoProxyRegistry.address, rebalance.address],
+    args: [addressProvider.address, lendingPool.address, mimoProxyFactory.address, mimoRebalance.address],
   });
   const autoRebalance: MIMOAutoRebalance = await ethers.getContract("MIMOAutoRebalance");
 
@@ -79,12 +69,15 @@ const setup = deployments.createFixture(async () => {
     configProvider.mock.collateralMinCollateralRatio.withArgs(usdc.address).returns(ethers.utils.parseUnits("110", 16)),
   ]);
 
+  const mimoProxyState = await mimoProxyFactory.getProxyState(mimoProxy.address);
+  const mimoProxyGuard: MIMOProxyGuard = await ethers.getContractAt("MIMOProxyGuard", mimoProxyState.proxyGuard);
+
   // Set permission on deployed MIMOProxy to allow MIMORebalance callback
-  await mimoProxy.setPermission(
+  await mimoProxyGuard.setPermission(
     autoRebalance.address,
-    rebalance.address,
+    mimoRebalance.address,
     getSelector(
-      rebalance.interface.functions[
+      mimoRebalance.interface.functions[
         "rebalanceOperation(address,uint256,uint256,uint256,(address,uint256,uint256),(uint256,bytes))"
       ].format(),
     ),
@@ -104,7 +97,7 @@ const setup = deployments.createFixture(async () => {
 
   await autoRebalance.setAutomation(1, autoVault);
 
-  // Format rebalance arguments to avoid code duplication
+  // Format mimoRebalance arguments to avoid code duplication
   const flData = {
     asset: wmatic.address,
     proxyAction: autoRebalance.address,
@@ -126,10 +119,10 @@ const setup = deployments.createFixture(async () => {
     mimoProxy,
     addressProvider,
     lendingPool,
-    mimoProxyRegistry,
+    mimoProxyFactory,
     vaultsCore,
     vaultsDataProvider,
-    rebalance,
+    mimoRebalance,
     priceFeed,
     stablex,
     autoRebalance,
@@ -143,18 +136,18 @@ const setup = deployments.createFixture(async () => {
   };
 });
 
-describe("--- MIMOManagedRebalance Unit Test ---", () => {
+describe("--- MIMOAutoRebalance Unit Test ---", () => {
   it("should set state variable correctly", async () => {
-    const { autoRebalance, rebalance } = await setup();
-    const mimoRebalance = await autoRebalance.mimoRebalance();
-    expect(mimoRebalance).to.be.equal(rebalance.address);
+    const { autoRebalance, mimoRebalance } = await setup();
+    const _mimoRebalance = await autoRebalance.mimoRebalance();
+    expect(_mimoRebalance).to.be.equal(mimoRebalance.address);
   });
   it("should revert if trying to set state variable to address 0", async () => {
-    const { addressProvider, lendingPool, mimoProxyRegistry, deploy, owner } = await setup();
+    const { addressProvider, lendingPool, mimoProxyFactory, deploy, owner } = await setup();
     await expect(
       deploy("MIMOAutoRebalance", {
         from: owner.address,
-        args: [addressProvider.address, lendingPool.address, mimoProxyRegistry.address, ethers.constants.AddressZero],
+        args: [addressProvider.address, lendingPool.address, mimoProxyFactory.address, ethers.constants.AddressZero],
       }),
     ).to.be.revertedWith("CANNOT_SET_TO_ADDRESS_ZERO()");
   });
@@ -268,6 +261,6 @@ describe("--- MIMOManagedRebalance Unit Test ---", () => {
         autoRebalance.address,
         params,
       ),
-    ).to.be.revertedWith("3");
+    ).to.be.reverted;
   });
 });

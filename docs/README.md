@@ -68,8 +68,7 @@ To open our vault up for `autoRebalance`s, we must first call the `setAutomation
 The default state for V2 SuperVaults starts with `isAutomated` set to `false` - which corresponds to a state of the vault not being open to automation. To open the vault up for automation by anyone, `isAutomated` will need to be set to `true`.
 
 Each rebalance call will swap one collateral for another. To impose maximum slippage amounts to ensure our vault collateral doesn't lose too much value in between rebalances, we can set the `allowedVariation`. The variation is calculated as:
- `vaultVariation = (intended rebalance collateral value - received swapped collateral value)/(starting vault Value)`
-
+`vaultVariation = (intended rebalance collateral value - received swapped collateral value)/(starting vault Value)`
 
 Each automated rebalance will move the collateral and debt from the starting vault to a vault with less volatile collateral to bring the starting vault's collateralization ratio to the given `targetRatio`. Operators can only rebalance if the vault's collateralization ratio is lower than the `triggerRatio`. Given this `targetRatio` and `triggerRatio`, we can find the `rebalanceAmount` and `mintAmount` needed to make this rebalance call through assuming that we will borrow as much debt as the protocol allows us to (padded by the `mcrBuffer`). The full derivation is shown in the `Automated Rebalance Calculation` section.
 
@@ -78,7 +77,7 @@ The automated rebalance calculates the amount of collateral and debt to rebalanc
 Users can configure how much they want to pay to incentivize each `autoRebalance` through setting the `fixedFee`, and `varFee`. The total fees paid per each rebalance is given as:  
  `( total fees ) = fixedFee + (varFee * rebalanceValue)`
 
-Where `rebalanceValue` is the value, in PAR, of the `rebalancedCollateral`. Rebalancing fees are paid in PAR borrowed from the vault that is rebalanced to.  
+Where `rebalanceValue` is the value, in PAR, of the `rebalancedCollateral`. Rebalancing fees are paid in PAR borrowed from the vault that is rebalanced to.
 
 Setting higher fees incentivizes more people to monitor a vault for rebalances, but makes each rebalance more costly.
 
@@ -103,7 +102,7 @@ Similar to calling `setAutomation` for an `AutomatedVault`, users configure a va
       uint256 mcrBuffer
     }
 
-The default state for our V2 SuperVault starts with `isManaged` set to `false` - which corresponds to a state of the vault not being open to automated. To open the vault up for automation, `isManaged` will need to be set to `true`.
+The default state for our V2 SuperVault starts with `isManaged` set to `false` - which corresponds to a state of the vault not being open to management. To open the vault up for management, `isManaged` will need to be set to `true`.
 
 To set the address of the manager, change the `manager` property. This address must be a whitelisted vault manager address on the protocol.
 
@@ -144,16 +143,16 @@ The proxy registry ensures that only one proxy can exist per owner at a time. Th
 
 With this design pattern, all collateral is held by the `MimoProxy` clone for the user, and the the `MimoProxy` clone is the owner of vaults on `VaultsCore`. All vault operations are done through an intermediate call through the SuperVaults V2 contracts through `delegateCall`
 
-![Clone Diagram](diagrams/SV-V2Delegate.svg). 
+![Clone Diagram](diagrams/SV-V2Delegate.svg).
 
-Because `VaultsCore` enforces that only the vault's creator can do vault operations, all vaults that intend to do any operations through the `MimoProxy` must be created by the `MimoProxy` for the right access control. Each vault operation in SuperVaults V2 has its own contract instance associated with it. 
+Because `VaultsCore` enforces that only the vault's creator can do vault operations, all vaults that intend to do any operations through the `MimoProxy` must be created by the `MimoProxy` for the right access control. Each vault operation in SuperVaults V2 has its own contract instance associated with it.
 
 ## Managed & Automated Rebalance Vault Operations
 
 In addition to the base access control for all vault operations, Managed and Automated rebalance calls require enforcing that all rebalances meet the `ManagedVault` and `AutomatedVault` configs. Moreover, `rebalance()` calls for these contracts should be open to not just the vault owner to allow others to rebalance as well. Thus, calls for managed and auto rebalancing use slightly different interactions than having users directly interact with the MimoProxy clone for the user. Instead, `rebalance()` calls for `ManagedVault`s and `AutomatedVault`s must be directly made through the corresponding `MIMOAutoRebalance` or `MIMOManagedRebalance` contracts. From there, any pre-rebalance checks are done (e.g. if the caller is a manger for a `ManagedRebalance`) before calling the `execute()` method for the `MimoProxy` clone, which makes a regular `rebalance()` call to the `rebalance` SuperVaults V2 contract (as in the case for a normal rebalance). Before ending the transaction, the post-rebalance checks (e.g. making sure `vaultVariation` is within the limits) are done.  
  ![Clone Diagram](diagrams/SV-V2Rebalance.svg)
 
-## Rebalance paramater Equation Calculation
+## Rebalance paramater Equation
 
 Let's assume we we have an `automatedVault` called `vaultA` that has reached the `triggerRatio`. This vault can be rebalanced to meet a `targetRatio` by moving some collateral and debt to another vault (let's call this `vaultB`) with a lower MCR, but we must find the `rebalanceAmount` (the amount of collateral to balance) and `mintAmount`(the amount of vault debt to rebalance) to specify the rebalance transaction. To find out how much collateral and vault debt corresponds to moving a vault from a `triggerRatio` to a `targetRatio` collateralization ratio, we first start with the equation for the health ratio on vault A:
 
@@ -172,7 +171,7 @@ Now we can solve for the `rebalanceAmount` and `mintAmount` using equations `(1)
 
 ```
 rebalanceAmount =
- (targetRatio * (vaultADebt + fixedFee) - vaultACollateralValue) / 
+ (targetRatio * (vaultADebt + fixedFee) - vaultACollateralValue) /
  (targetRatio / (vaultBMcr + mcrBuffer) - targetRatio * varFee - 1);
 ```
 

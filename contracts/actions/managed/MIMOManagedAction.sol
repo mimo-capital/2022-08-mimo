@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.10;
 
+import "@aave/core-v3/contracts/protocol/libraries/math/WadRayMath.sol";
+
 import "./interfaces/IMIMOManagedAction.sol";
 import { Errors } from "../../libraries/Errors.sol";
 import "../../core/interfaces/IAddressProvider.sol";
-import "../../libraries/WadRayMath.sol";
 
 contract MIMOManagedAction is IMIMOManagedAction {
   using WadRayMath for uint256;

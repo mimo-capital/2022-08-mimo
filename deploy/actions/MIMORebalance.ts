@@ -12,7 +12,7 @@ const func: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
     : ((await hre.getChainId()) as ChainId);
 
   const chainAddresses = ADDRESSES[chainId];
-  const mimoProxyRegistry = await hre.ethers.getContract("MIMOProxyRegistry");
+  const mimoProxyFactory = await hre.ethers.getContract("MIMOProxyFactory");
 
   await deploy("MIMORebalance", {
     from: deployer,
@@ -20,12 +20,12 @@ const func: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
       chainAddresses.ADDRESS_PROVIDER,
       chainAddresses.DEX_ADDRESS_PROVIDER,
       chainAddresses.AAVE_POOL,
-      mimoProxyRegistry.address,
+      mimoProxyFactory.address,
     ],
   });
 };
 
 export default func;
 func.id = "deploy_mimo_rebalance";
-func.dependencies = ["MIMOProxyRegistry"];
+func.dependencies = ["MIMOProxyFactory"];
 func.tags = ["Action", "MIMORebalance"];

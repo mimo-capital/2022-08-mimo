@@ -1,33 +1,13 @@
 import chai, { expect } from "chai";
-import { deployMockContract, solidity } from "ethereum-waffle";
-import { artifacts, deployments, ethers } from "hardhat";
-import { MIMOSwap } from "../../typechain";
+import { solidity } from "ethereum-waffle";
+import { deployments, ethers } from "hardhat";
+import { baseSetup } from "./baseFixture";
 
 chai.use(solidity);
 
 const setup = deployments.createFixture(async () => {
-  await deployments.fixture(["Proxy"]);
-  const { deploy } = deployments;
+  const { addressProvider, dexAddressProvider, mimoSwap } = await baseSetup();
   const [owner, wmatic, mimoProxy] = await ethers.getSigners();
-
-  // Get artifacts
-  const [addressProviderArtifact, dexAddressProviderArtifact] = await Promise.all([
-    artifacts.readArtifact("IAddressProvider"),
-    artifacts.readArtifact("IDexAddressProvider"),
-  ]);
-
-  // Deploy mock contracts
-  const [addressProvider, dexAddressProvider] = await Promise.all([
-    deployMockContract(owner, addressProviderArtifact.abi),
-    deployMockContract(owner, dexAddressProviderArtifact.abi),
-  ]);
-
-  // Deploy non mock contracts
-  await deploy("MIMOSwap", {
-    from: owner.address,
-    args: [addressProvider.address, dexAddressProvider.address],
-  });
-  const mimoSwap: MIMOSwap = await ethers.getContract("MIMOSwap");
 
   return {
     owner,

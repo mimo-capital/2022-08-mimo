@@ -4,29 +4,31 @@ pragma solidity 0.8.10;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@aave/core-v3/contracts/protocol/libraries/math/WadRayMath.sol";
 
 import "./MIMOAutoAction.sol";
 import "./interfaces/IMIMOAutoRebalance.sol";
 import "../MIMOFlashLoan.sol";
 import "../MIMOPausable.sol";
 import "../interfaces/IMIMORebalance.sol";
-import "../../libraries/WadRayMath.sol";
-
 import { Errors } from "../../libraries/Errors.sol";
 
 /**
   Rebalance value is calculated by the formula below :
 
-             targetRatio * (vaultDebt + fixedFee) - collateralValue
-      ----------------------------------------------------------------------
-          targetRatio / (mcrB + mcrBuffer) - targetRatio * variableFee - 1 
+                     targetRatio * (vaultDebt + fixedFee) - collateralValue
+-----------------------------------------------------------------------------------------------------
+        targetRatio - (mcrb + mcrBuffer) * premium
+     ----------------------------------------------------  - targetRatio * varFee    -  WAD
+               (mcrB + mcrBuffer) 
  */
 
 contract MIMOAutoRebalance is MIMOPausable, MIMOAutoAction, MIMOFlashLoan, ReentrancyGuard, IMIMOAutoRebalance {
   using SafeERC20 for IERC20;
   using WadRayMath for uint256;
 
-  uint256 public constant ROUNDING_BUFFER = 1e15;
+  uint256 public constant ROUNDING_BUFFER = 1e15; // Padding for difference between accumulated debt since refresh 
+  uint256 public constant FLASHLOAN_PERCENTAGE_FACTOR = 1e4; // The divisor needed to convert the flashloan fee int into a ratio
 
   address public immutable mimoRebalance;
 
@@ -59,21 +61,18 @@ contract MIMOAutoRebalance is MIMOPausable, MIMOAutoAction, MIMOFlashLoan, Reent
     AutomatedVault memory autoVault = _automatedVaults[vaultId];
 
     (uint256 vaultARatioBefore, VaultState memory vaultAState) = _getVaultStats(vaultId);
-
     _preRebalanceChecks(autoVault, vaultId, vaultARatioBefore);
 
     IVaultsDataProvider vaultsData = a.vaultsData();
     address vaultOwner = vaultsData.vaultOwner(vaultId);
     uint256 vaultBId = vaultsData.vaultId(address(autoVault.toCollateral), vaultOwner);
     uint256 vaultBBalanceBefore = vaultsData.vaultCollateralBalance(vaultBId);
-
     (IMIMORebalance.RebalanceData memory rbData, FlashLoanData memory flData, uint256 autoFee) = _getRebalanceParams(
       autoVault,
       vaultAState,
       IERC20(autoVault.toCollateral),
       vaultId
     );
-
     _takeFlashLoan(flData, abi.encode(vaultOwner, autoFee, rbData, swapData));
     _postRebalanceChecks(autoVault, flData.amount, vaultBBalanceBefore, vaultId, vaultOwner, vaultsData);
 
@@ -182,17 +181,19 @@ contract MIMOAutoRebalance is MIMOPausable, MIMOAutoAction, MIMOFlashLoan, Reent
     )
   {
     IAddressProvider _a = a;
-
-    uint256 targetRatio = autoVault.targetRatio + ROUNDING_BUFFER; // add 0.1% to account for rounding
-    uint256 toVaultMcr = _a.config().collateralMinCollateralRatio(address(toCollateral));
+    uint256 targetRatio = autoVault.targetRatio + ROUNDING_BUFFER; // Add padding to account for parDebt accumulated since last refresh;
+    uint256 toVaultTargetMcr = _a.config().collateralMinCollateralRatio(address(toCollateral)) + autoVault.mcrBuffer;
+    uint256 premiumInt = lendingPool.FLASHLOAN_PREMIUM_TOTAL(); // Get premium from lendingPool, in Int 
+    uint256 premium = (premiumInt * WadRayMath.WAD) / FLASHLOAN_PERCENTAGE_FACTOR; // Convert premium Int into WAD units
     uint256 rebalanceValue = (targetRatio.wadMul(vaultState.vaultDebt + autoVault.fixedFee) -
       vaultState.collateralValue).wadDiv(
-        (targetRatio.wadDiv(toVaultMcr + autoVault.mcrBuffer) - targetRatio.wadMul(autoVault.varFee) - WadRayMath.WAD)
+        (targetRatio - toVaultTargetMcr.wadMul(premium)).wadDiv(toVaultTargetMcr) -
+          targetRatio.wadMul(autoVault.varFee) -
+          WadRayMath.WAD
       );
-
     autoFee = autoVault.fixedFee + rebalanceValue.wadMul(autoVault.varFee);
     rebalanceAmount = _a.priceFeed().convertTo(vaultState.collateralType, rebalanceValue);
-    mintAmount = rebalanceValue.wadDiv(toVaultMcr + autoVault.mcrBuffer) - autoFee;
+    mintAmount = rebalanceValue.wadDiv(toVaultTargetMcr);
   }
 
   /**
@@ -224,7 +225,6 @@ contract MIMOAutoRebalance is MIMOPausable, MIMOAutoAction, MIMOFlashLoan, Reent
       vaultState,
       address(toCollateral)
     );
-
     autoFee = _autoFee;
     rbData = IMIMORebalance.RebalanceData({ toCollateral: toCollateral, vaultId: vaultId, mintAmount: mintAmount });
     flData = FlashLoanData({ asset: vaultState.collateralType, proxyAction: address(this), amount: rebalanceAmount });

@@ -1,9 +1,9 @@
 import chai, { expect } from "chai";
-import { deployMockContract, solidity } from "ethereum-waffle";
-import { artifacts, deployments, ethers } from "hardhat";
+import { solidity } from "ethereum-waffle";
+import { deployments, ethers } from "hardhat";
 import { MIMOManagedRebalance } from "../../../typechain";
 import { getSelector } from "../../utils";
-import { setup as rebalanceSetUp } from "../MIMORebalance.test";
+import { baseSetup } from "../baseFixture";
 
 chai.use(solidity);
 
@@ -21,33 +21,24 @@ const setup = deployments.createFixture(async () => {
     mimoProxy,
     addressProvider,
     lendingPool,
-    mimoProxyRegistry,
+    mimoProxyFactory,
     vaultsCore,
     vaultsDataProvider,
-    rebalance,
+    mimoRebalance,
     priceFeed,
     stablex,
     wmatic,
     usdc,
     data,
-  } = await rebalanceSetUp();
-
-  // Get artifacts
-  const [accessControllerArtifact, configProviderArtifact] = await Promise.all([
-    artifacts.readArtifact("IAccessController"),
-    artifacts.readArtifact("IConfigProvider"),
-  ]);
-
-  // Deploy mock contracts
-  const [accessController, configProvider] = await Promise.all([
-    deployMockContract(owner, accessControllerArtifact.abi),
-    deployMockContract(owner, configProviderArtifact.abi),
-  ]);
+    accessController,
+    configProvider,
+    mimoProxyGuard,
+  } = await baseSetup();
 
   // Deploy and fetch non mock contracts
   await deploy("MIMOManagedRebalance", {
     from: owner.address,
-    args: [addressProvider.address, lendingPool.address, mimoProxyRegistry.address, rebalance.address],
+    args: [addressProvider.address, lendingPool.address, mimoProxyFactory.address, mimoRebalance.address],
   });
   const managedRebalance: MIMOManagedRebalance = await ethers.getContract("MIMOManagedRebalance");
 
@@ -80,11 +71,11 @@ const setup = deployments.createFixture(async () => {
   ]);
 
   // Set permission on deployed MIMOProxy to allow MIMORebalance callback
-  await mimoProxy.setPermission(
+  await mimoProxyGuard.setPermission(
     managedRebalance.address,
-    rebalance.address,
+    mimoRebalance.address,
     getSelector(
-      rebalance.interface.functions[
+      mimoRebalance.interface.functions[
         "rebalanceOperation(address,uint256,uint256,uint256,(address,uint256,uint256),(uint256,bytes))"
       ].format(),
     ),
@@ -105,7 +96,7 @@ const setup = deployments.createFixture(async () => {
     mcrBuffer: ethers.utils.parseUnits("10", 16),
   });
 
-  // Format rebalance arguments to avoid code duplication
+  // Format mimoRebalance arguments to avoid code duplication
   const flData = {
     asset: wmatic.address,
     proxyAction: managedRebalance.address,
@@ -126,10 +117,10 @@ const setup = deployments.createFixture(async () => {
     mimoProxy,
     addressProvider,
     lendingPool,
-    mimoProxyRegistry,
+    mimoProxyFactory,
     vaultsCore,
     vaultsDataProvider,
-    rebalance,
+    mimoRebalance,
     priceFeed,
     stablex,
     managedRebalance,
@@ -148,20 +139,20 @@ const setup = deployments.createFixture(async () => {
 
 describe("--- MIMOManagedRebalance Unit Test ---", () => {
   it("should set state variable correctly", async () => {
-    const { managedRebalance, rebalance } = await setup();
-    const mimoRebalance = await managedRebalance.mimoRebalance();
-    expect(mimoRebalance).to.be.equal(rebalance.address);
+    const { managedRebalance, mimoRebalance } = await setup();
+    const _mimoRebalance = await managedRebalance.mimoRebalance();
+    expect(_mimoRebalance).to.be.equal(mimoRebalance.address);
   });
   it("should revert if trying to set state variable to address 0", async () => {
-    const { addressProvider, lendingPool, mimoProxyRegistry, deploy, owner } = await setup();
+    const { addressProvider, lendingPool, mimoProxyFactory, deploy, owner } = await setup();
     await expect(
       deploy("MIMOManagedRebalance", {
         from: owner.address,
-        args: [addressProvider.address, lendingPool.address, mimoProxyRegistry.address, ethers.constants.AddressZero],
+        args: [addressProvider.address, lendingPool.address, mimoProxyFactory.address, ethers.constants.AddressZero],
       }),
     ).to.be.revertedWith("CANNOT_SET_TO_ADDRESS_ZERO()");
   });
-  it("should be able to rebalance from WMATIC to USDC without manager fee", async () => {
+  it("should be able to mimoRebalance from WMATIC to USDC without manager fee", async () => {
     const { wmatic, managedRebalance, managerA, lendingPool, mimoProxy, flData, rbData, swapData, vaultsDataProvider } =
       await setup();
     vaultsDataProvider.mock.vaultCollateralBalance.withArgs(1).returns(DELEVERAGE_AMOUNT);
@@ -184,7 +175,7 @@ describe("--- MIMOManagedRebalance Unit Test ---", () => {
       params,
     );
   });
-  it("should be able to rebalance with slippage within set limit", async () => {
+  it("should be able to mimoRebalance with slippage within set limit", async () => {
     const { managedRebalance, flData, rbData, swapData, managerA, priceFeed, usdc } = await setup();
     await priceFeed.mock.convertFrom.withArgs(usdc.address, 0).returns(DELEVERAGE_AMOUNT.mul(995).div(1000)); // 0.5% slippage
     await managedRebalance.connect(managerA).rebalance(flData, rbData, swapData);
@@ -210,19 +201,19 @@ describe("--- MIMOManagedRebalance Unit Test ---", () => {
       "VAULT_NOT_UNDER_MANAGEMENT()",
     );
   });
-  it("should revert if rebalance called by non appointed manager", async () => {
+  it("should revert if mimoRebalance called by non appointed manager", async () => {
     const { managedRebalance, flData, rbData, swapData, managerB } = await setup();
     await expect(managedRebalance.connect(managerB).rebalance(flData, rbData, swapData)).to.be.revertedWith(
       "CALLER_NOT_SELECTED_MANAGER()",
     );
   });
-  it("should revert if rebalance called by unlisted manager", async () => {
+  it("should revert if mimoRebalance called by unlisted manager", async () => {
     const { managedRebalance, flData, rbData, swapData, managerC } = await setup();
     await expect(managedRebalance.connect(managerC).rebalance(flData, rbData, swapData)).to.be.revertedWith(
       "MANAGER_NOT_LISTED()",
     );
   });
-  it("should revert if rebalance amount is 0", async () => {
+  it("should revert if mimoRebalance amount is 0", async () => {
     const { managedRebalance, flData, rbData, swapData, managerA } = await setup();
     const newFlData = { ...flData };
     newFlData.amount = ethers.constants.Zero;
@@ -344,6 +335,6 @@ describe("--- MIMOManagedRebalance Unit Test ---", () => {
         managedRebalance.address,
         params,
       ),
-    ).to.be.revertedWith("3");
+    ).to.be.reverted;
   });
 });

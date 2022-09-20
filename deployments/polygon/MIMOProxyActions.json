@@ -1,0 +1,134 @@
+{
+  "address": "0xaA2d75b00Ab98043d7ddCD73615636014d52053F",
+  "abi": [
+    {
+      "inputs": [],
+      "name": "EXECUTION_REVERTED",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "targetsLength",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "dataLength",
+          "type": "uint256"
+        }
+      ],
+      "name": "TARGETS_LENGTH_DIFFERENT_THAN_DATA_LENGTH",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "target",
+          "type": "address"
+        }
+      ],
+      "name": "TARGET_INVALID",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address[]",
+          "name": "targets",
+          "type": "address[]"
+        },
+        {
+          "internalType": "bytes[]",
+          "name": "data",
+          "type": "bytes[]"
+        }
+      ],
+      "name": "multicall",
+      "outputs": [
+        {
+          "internalType": "bytes[]",
+          "name": "",
+          "type": "bytes[]"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "withdrawETH",
+      "outputs": [],
+      "stateMutability": "payable",
+      "type": "function"
+    }
+  ],
+  "transactionHash": "0x61bf3fe60bf32db594c6e3d87354f1f9f18071cdc4cb0608e65939ea6809a1e4",
+  "receipt": {
+    "to": null,
+    "from": "0x52004FfDf72fb793d5128c9F96d631F8770e2DaC",
+    "contractAddress": "0xaA2d75b00Ab98043d7ddCD73615636014d52053F",
+    "transactionIndex": 3,
+    "gasUsed": "431622",
+    "logsBloom": "0x00000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000800000000000080000000100000000000000000000000000000000000000000000000010000000000080000000000000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000200000004000000000000000000001000000000000000000002000000000100000000000000000000000000000000000000000000002000000000000000000000000100000",
+    "blockHash": "0xd1690bcb594d9f29455c0d6b96adf325d178c7f94557a50ad19b0e15cbbc579f",
+    "transactionHash": "0x61bf3fe60bf32db594c6e3d87354f1f9f18071cdc4cb0608e65939ea6809a1e4",
+    "logs": [
+      {
+        "transactionIndex": 3,
+        "blockNumber": 32721886,
+        "transactionHash": "0x61bf3fe60bf32db594c6e3d87354f1f9f18071cdc4cb0608e65939ea6809a1e4",
+        "address": "0x0000000000000000000000000000000000001010",
+        "topics": [
+          "0x4dfe1bbbcf077ddc3e01291eea2d5c70c2b422b415d95645b9adcfd678cb1d63",
+          "0x0000000000000000000000000000000000000000000000000000000000001010",
+          "0x00000000000000000000000052004ffdf72fb793d5128c9f96d631f8770e2dac",
+          "0x000000000000000000000000ef46d5fe753c988606e6f703260d816af53b03eb"
+        ],
+        "data": "0x00000000000000000000000000000000000000000000000000e603b034da06e000000000000000000000000000000000000000000000000098bd8b38b2f218000000000000000000000000000000000000000000000023160fc2edc2256d068400000000000000000000000000000000000000000000000097d787887e18112000000000000000000000000000000000000000000000231610a8f1725a470d64",
+        "logIndex": 18,
+        "blockHash": "0xd1690bcb594d9f29455c0d6b96adf325d178c7f94557a50ad19b0e15cbbc579f"
+      }
+    ],
+    "blockNumber": 32721886,
+    "cumulativeGasUsed": "990107",
+    "status": 1,
+    "byzantium": true
+  },
+  "args": [],
+  "numDeployments": 1,
+  "solcInputHash": "f32a31898ee3e7d355d788de2c8f3c93",
+  "metadata": "{\"compiler\":{\"version\":\"0.8.10+commit.fc410830\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[],\"name\":\"EXECUTION_REVERTED\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"targetsLength\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"dataLength\",\"type\":\"uint256\"}],\"name\":\"TARGETS_LENGTH_DIFFERENT_THAN_DATA_LENGTH\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"target\",\"type\":\"address\"}],\"name\":\"TARGET_INVALID\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"targets\",\"type\":\"address[]\"},{\"internalType\":\"bytes[]\",\"name\":\"data\",\"type\":\"bytes[]\"}],\"name\":\"multicall\",\"outputs\":[{\"internalType\":\"bytes[]\",\"name\":\"\",\"type\":\"bytes[]\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"withdrawETH\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"}],\"devdoc\":{\"kind\":\"dev\",\"methods\":{\"multicall(address[],bytes[])\":{\"params\":{\"data\":\"Bytes array of encoded function data for each target call\",\"targets\":\"Address array of all contracts to call\"}}},\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{\"multicall(address[],bytes[])\":{\"notice\":\"Call multiple functions from current contract and return the data from all of them if they all succeed\"},\"withdrawETH()\":{\"notice\":\"Sends ETH back to owner of the MIMOProxy Can only be called by MIMOProxy owner\"}},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/actions/MIMOProxyActions.sol\":\"MIMOProxyActions\"},\"evmVersion\":\"london\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"ipfs\",\"useLiteralContent\":true},\"optimizer\":{\"enabled\":true,\"runs\":200},\"remappings\":[]},\"sources\":{\"contracts/actions/MIMOProxyActions.sol\":{\"content\":\"// SPDX-License-Identifier: Unlicense\\npragma solidity 0.8.10;\\n\\nimport \\\"../proxy/interfaces/IMIMOProxy.sol\\\";\\nimport { Errors } from \\\"../libraries/Errors.sol\\\";\\n\\ncontract MIMOProxyActions {\\n  /**\\n    @notice Sends ETH back to owner of the MIMOProxy\\n    Can only be called by MIMOProxy owner\\n   */\\n  function withdrawETH() external payable {\\n    (bool success, bytes memory response) = IMIMOProxy(address(this))\\n      .proxyFactory()\\n      .getProxyState(address(this))\\n      .owner\\n      .call{ value: address(this).balance }(\\\"\\\");\\n    if (!success) {\\n      if (response.length > 0) {\\n        assembly {\\n          let returndata_size := mload(response)\\n          revert(add(32, response), returndata_size)\\n        }\\n      } else {\\n        revert Errors.EXECUTION_REVERTED();\\n      }\\n    }\\n  }\\n\\n  /**\\n    @notice Call multiple functions from current contract and return the data from all of them if they all succeed\\n    @param targets Address array of all contracts to call\\n    @param data Bytes array of encoded function data for each target call\\n   */\\n  function multicall(address[] calldata targets, bytes[] calldata data) external returns (bytes[] memory) {\\n    if (targets.length != data.length) {\\n      revert Errors.TARGETS_LENGTH_DIFFERENT_THAN_DATA_LENGTH(targets.length, data.length);\\n    }\\n    bytes[] memory results = new bytes[](data.length);\\n    for (uint256 i = 0; i < targets.length; i++) {\\n      // Check that the target is a valid contract.\\n      if (targets[i].code.length == 0) {\\n        revert Errors.TARGET_INVALID(targets[i]);\\n      }\\n      (bool success, bytes memory response) = targets[i].call(data[i]);\\n      if (!success) {\\n        if (response.length > 0) {\\n          assembly {\\n            let returndata_size := mload(response)\\n            revert(add(32, response), returndata_size)\\n          }\\n        } else {\\n          revert Errors.EXECUTION_REVERTED();\\n        }\\n      }\\n      results[i] = response;\\n    }\\n    return results;\\n  }\\n}\\n\",\"keccak256\":\"0xfb3f4c34aa32b27906239e087fde657ce5c899b24f315d46d2567ed9ee449bc6\",\"license\":\"Unlicense\"},\"contracts/libraries/Errors.sol\":{\"content\":\"// SPDX-License-Identifier: Unlicense\\npragma solidity 0.8.10;\\n\\n/**\\n    @title Errors library\\n    @author MIMO\\n    @notice Defines the error messages emtted by the different contracts of the MIMO protocol\\n */\\n\\nlibrary Errors {\\n  error CANNOT_SET_TO_ADDRESS_ZERO();\\n  error INITIATOR_NOT_AUTHORIZED(address actual, address expected);\\n  error CALLER_NOT_LENDING_POOL(address actual, address expected);\\n  error CANNOT_REPAY_FLASHLOAN();\\n  error INVALID_AGGREGATOR();\\n  error AGGREGATOR_CALL_FAILED();\\n  error EXECUTION_NOT_AUTHORIZED(address owner, address caller, address target, bytes4 selector);\\n  error EXECUTION_REVERTED();\\n  error NOT_OWNER(address owner, address caller);\\n  error OWNER_CHANGED(address originalOwner, address newOwner);\\n  error TARGET_INVALID(address target);\\n  error CALLER_NOT_VAULT_OWNER(address callerProxy, address vaultOwner);\\n  error CALLER_NOT_PROTOCOL_MANAGER();\\n  error MANAGER_NOT_LISTED();\\n  error VAULT_NOT_UNDER_MANAGEMENT();\\n  error CALLER_NOT_SELECTED_MANAGER();\\n  error PROXY_ALREADY_EXISTS(address owner);\\n  error MAX_OPERATIONS_REACHED();\\n  error MINT_AMOUNT_GREATER_THAN_VAULT_DEBT();\\n  error VAULT_VALUE_CHANGE_TOO_HIGH();\\n  error FINAL_VAULT_RATIO_TOO_LOW(uint256 minRatio, uint256 actualRatio);\\n  error VAULT_NOT_AUTOMATED();\\n  error VAULT_TRIGGER_RATIO_NOT_REACHED(uint256 actual, uint256 expected);\\n  error TARGETS_LENGTH_DIFFERENT_THAN_DATA_LENGTH(uint256 targetsLength, uint256 dataLength);\\n  error LOW_LEVEL_CALL_FAILED();\\n  error REBALANCE_AMOUNT_CANNOT_BE_ZERO();\\n  error VARIABLE_FEE_TOO_HIGH(uint256 maxVarFee, uint256 actualVarFee);\\n  error VAULT_NOT_INITIALIZED(uint256 vaultId);\\n  error ALREADY_OWNER(address owner, address ownedProxy);\\n  error CALLER_NOT_PENDING_OWNER(address caller, address pendingOwner);\\n  error UNAUTHORIZED_CALLER();\\n  error PAUSED();\\n}\\n\",\"keccak256\":\"0xc1749264f50f0c27653f862ccb7a87e1930603f67cc0bbb29ae533ab323ea155\",\"license\":\"Unlicense\"},\"contracts/proxy/interfaces/IMIMOProxy.sol\":{\"content\":\"// SPDX-License-Identifier: Unlicense\\npragma solidity 0.8.10;\\n\\nimport \\\"./IMIMOProxyFactory.sol\\\";\\n\\n/// @title IMIMOProxy\\n/// @notice Proxy contract to compose transactions on owner's behalf.\\ninterface IMIMOProxy {\\n  event Execute(address indexed target, bytes data, bytes response);\\n\\n  function execute(address target, bytes calldata data) external payable returns (bytes memory response);\\n\\n  function proxyFactory() external returns (IMIMOProxyFactory);\\n}\\n\",\"keccak256\":\"0x3b1ba487a3e28063c13b5bf5dd78d738f232f7a801a0d164e499843772187532\",\"license\":\"Unlicense\"},\"contracts/proxy/interfaces/IMIMOProxyFactory.sol\":{\"content\":\"// SPDX-License-Identifier: Unlicense\\npragma solidity ^0.8.4;\\n\\nimport \\\"./IMIMOProxy.sol\\\";\\nimport \\\"./IMIMOProxyGuard.sol\\\";\\n\\n/// @title IMIMOProxyFactory\\n/// @notice Deploys new proxies with CREATE2.\\ninterface IMIMOProxyFactory {\\n  struct ProxyState {\\n    address owner;\\n    IMIMOProxyGuard proxyGuard;\\n    uint256 minGas;\\n  }\\n\\n  event ProxyDeployed(address indexed owner, address indexed proxy, ProxyState proxyState);\\n\\n  event PermissionsCleared(address indexed proxy, address newProxyGuard);\\n\\n  event OwnershipTransferred(address indexed proxy, address indexed previousOwner, address indexed newOwner);\\n\\n  event OwnershipClaimed(address indexed proxy, address indexed newOwner);\\n\\n  event MinGasSet(address indexed proxy, uint256 minGas);\\n\\n  function deploy() external;\\n\\n  function transferOwnership(address proxy, address newOwner) external;\\n\\n  function claimOwnership(address proxy, bool clear) external;\\n\\n  function clearPermissions(address proxy) external;\\n\\n  function setMinGas(address proxy, uint256 minGas) external;\\n\\n  function mimoProxyGuardBase() external returns (address);\\n\\n  function isProxy(address proxy) external returns (bool result);\\n\\n  function VERSION() external view returns (uint256);\\n\\n  function getProxyState(address proxy) external view returns (ProxyState memory proxyState);\\n\\n  function getCurrentProxy(address owner) external view returns (IMIMOProxy proxy);\\n\\n  function getPendingOwner(address proxy) external view returns (address pendingOwner);\\n}\\n\",\"keccak256\":\"0xd679829ba199a63195d7ef3db753643ba620c7b2d2b8e8293069a8dbf8f2a373\",\"license\":\"Unlicense\"},\"contracts/proxy/interfaces/IMIMOProxyGuard.sol\":{\"content\":\"// SPDX-License-Identifier: Unlicense\\npragma solidity 0.8.10;\\n\\nimport \\\"./IMIMOProxyFactory.sol\\\";\\n\\ninterface IMIMOProxyGuard {\\n  event PermissionSet(address indexed envoy, address indexed target, bytes4 selector, bool permission);\\n\\n  function initialize(address proxyFactory, address proxy) external;\\n\\n  function setPermission(\\n    address envoy,\\n    address target,\\n    bytes4 selector,\\n    bool permission\\n  ) external;\\n\\n  function getPermission(\\n    address envoy,\\n    address target,\\n    bytes4 selector\\n  ) external view returns (bool);\\n\\n  function getProxy() external view returns (address proxy);\\n\\n  function getProxyFactory() external view returns (IMIMOProxyFactory proxyFactory);\\n}\\n\",\"keccak256\":\"0xceebcf2978b34653aaa522ee14ab436aee7e795bdd9c071bd202fb7b8b6a74fa\",\"license\":\"Unlicense\"}},\"version\":1}",
+  "bytecode": "0x608060405234801561001057600080fd5b506106d9806100206000396000f3fe6080604052600436106100295760003560e01c806363fb0b961461002e578063e086e5ec14610064575b600080fd5b34801561003a57600080fd5b5061004e61004936600461041e565b61006e565b60405161005b919061048a565b60405180910390f35b61006c610293565b005b606083821461009f576040516382080a2960e01b815260048101859052602481018390526044015b60405180910390fd5b60008267ffffffffffffffff8111156100ba576100ba610525565b6040519080825280602002602001820160405280156100ed57816020015b60608152602001906001900390816100d85790505b50905060005b858110156102895786868281811061010d5761010d61053b565b90506020020160208101906101229190610569565b6001600160a01b03163b61017c578686828181106101425761014261053b565b90506020020160208101906101579190610569565b60405163393100d760e11b81526001600160a01b039091166004820152602401610096565b6000808888848181106101915761019161053b565b90506020020160208101906101a69190610569565b6001600160a01b03168787858181106101c1576101c161053b565b90506020028101906101d3919061058d565b6040516101e19291906105d4565b6000604051808303816000865af19150503d806000811461021e576040519150601f19603f3d011682016040523d82523d6000602084013e610223565b606091505b5091509150816102565780511561023d5780518082602001fd5b6040516386bda99560e01b815260040160405180910390fd5b808484815181106102695761026961053b565b602002602001018190525050508080610281906105e4565b9150506100f3565b5095945050505050565b600080306001600160a01b031663c10f1a756040518163ffffffff1660e01b81526004016020604051808303816000875af11580156102d6573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906102fa919061060d565b60405163751913f760e11b81523060048201526001600160a01b03919091169063ea3227ee90602401606060405180830381865afa158015610340573d6000803e3d6000fd5b505050506040513d601f19601f82011682018060405250810190610364919061062a565b516040516001600160a01b03909116904790600081818185875af1925050503d80600081146103af576040519150601f19603f3d011682016040523d82523d6000602084013e6103b4565b606091505b5091509150816103ce5780511561023d5780518082602001fd5b5050565b60008083601f8401126103e457600080fd5b50813567ffffffffffffffff8111156103fc57600080fd5b6020830191508360208260051b850101111561041757600080fd5b9250929050565b6000806000806040858703121561043457600080fd5b843567ffffffffffffffff8082111561044c57600080fd5b610458888389016103d2565b9096509450602087013591508082111561047157600080fd5b5061047e878288016103d2565b95989497509550505050565b6000602080830181845280855180835260408601915060408160051b87010192508387016000805b8381101561051757888603603f1901855282518051808852835b818110156104e7578281018a01518982018b015289016104cc565b818111156104f757848a838b0101525b50601f01601f1916969096018701955093860193918601916001016104b2565b509398975050505050505050565b634e487b7160e01b600052604160045260246000fd5b634e487b7160e01b600052603260045260246000fd5b6001600160a01b038116811461056657600080fd5b50565b60006020828403121561057b57600080fd5b813561058681610551565b9392505050565b6000808335601e198436030181126105a457600080fd5b83018035915067ffffffffffffffff8211156105bf57600080fd5b60200191503681900382131561041757600080fd5b8183823760009101908152919050565b600060001982141561060657634e487b7160e01b600052601160045260246000fd5b5060010190565b60006020828403121561061f57600080fd5b815161058681610551565b60006060828403121561063c57600080fd5b6040516060810181811067ffffffffffffffff8211171561066d57634e487b7160e01b600052604160045260246000fd5b604052825161067b81610551565b8152602083015161068b81610551565b6020820152604092830151928101929092525091905056fea2646970667358221220d6ff2be1b9b8e90915a63e0335b78578a6ccefd3857f61885da8706e862ef2a264736f6c634300080a0033",
+  "deployedBytecode": "0x6080604052600436106100295760003560e01c806363fb0b961461002e578063e086e5ec14610064575b600080fd5b34801561003a57600080fd5b5061004e61004936600461041e565b61006e565b60405161005b919061048a565b60405180910390f35b61006c610293565b005b606083821461009f576040516382080a2960e01b815260048101859052602481018390526044015b60405180910390fd5b60008267ffffffffffffffff8111156100ba576100ba610525565b6040519080825280602002602001820160405280156100ed57816020015b60608152602001906001900390816100d85790505b50905060005b858110156102895786868281811061010d5761010d61053b565b90506020020160208101906101229190610569565b6001600160a01b03163b61017c578686828181106101425761014261053b565b90506020020160208101906101579190610569565b60405163393100d760e11b81526001600160a01b039091166004820152602401610096565b6000808888848181106101915761019161053b565b90506020020160208101906101a69190610569565b6001600160a01b03168787858181106101c1576101c161053b565b90506020028101906101d3919061058d565b6040516101e19291906105d4565b6000604051808303816000865af19150503d806000811461021e576040519150601f19603f3d011682016040523d82523d6000602084013e610223565b606091505b5091509150816102565780511561023d5780518082602001fd5b6040516386bda99560e01b815260040160405180910390fd5b808484815181106102695761026961053b565b602002602001018190525050508080610281906105e4565b9150506100f3565b5095945050505050565b600080306001600160a01b031663c10f1a756040518163ffffffff1660e01b81526004016020604051808303816000875af11580156102d6573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906102fa919061060d565b60405163751913f760e11b81523060048201526001600160a01b03919091169063ea3227ee90602401606060405180830381865afa158015610340573d6000803e3d6000fd5b505050506040513d601f19601f82011682018060405250810190610364919061062a565b516040516001600160a01b03909116904790600081818185875af1925050503d80600081146103af576040519150601f19603f3d011682016040523d82523d6000602084013e6103b4565b606091505b5091509150816103ce5780511561023d5780518082602001fd5b5050565b60008083601f8401126103e457600080fd5b50813567ffffffffffffffff8111156103fc57600080fd5b6020830191508360208260051b850101111561041757600080fd5b9250929050565b6000806000806040858703121561043457600080fd5b843567ffffffffffffffff8082111561044c57600080fd5b610458888389016103d2565b9096509450602087013591508082111561047157600080fd5b5061047e878288016103d2565b95989497509550505050565b6000602080830181845280855180835260408601915060408160051b87010192508387016000805b8381101561051757888603603f1901855282518051808852835b818110156104e7578281018a01518982018b015289016104cc565b818111156104f757848a838b0101525b50601f01601f1916969096018701955093860193918601916001016104b2565b509398975050505050505050565b634e487b7160e01b600052604160045260246000fd5b634e487b7160e01b600052603260045260246000fd5b6001600160a01b038116811461056657600080fd5b50565b60006020828403121561057b57600080fd5b813561058681610551565b9392505050565b6000808335601e198436030181126105a457600080fd5b83018035915067ffffffffffffffff8211156105bf57600080fd5b60200191503681900382131561041757600080fd5b8183823760009101908152919050565b600060001982141561060657634e487b7160e01b600052601160045260246000fd5b5060010190565b60006020828403121561061f57600080fd5b815161058681610551565b60006060828403121561063c57600080fd5b6040516060810181811067ffffffffffffffff8211171561066d57634e487b7160e01b600052604160045260246000fd5b604052825161067b81610551565b8152602083015161068b81610551565b6020820152604092830151928101929092525091905056fea2646970667358221220d6ff2be1b9b8e90915a63e0335b78578a6ccefd3857f61885da8706e862ef2a264736f6c634300080a0033",
+  "devdoc": {
+    "kind": "dev",
+    "methods": {
+      "multicall(address[],bytes[])": {
+        "params": {
+          "data": "Bytes array of encoded function data for each target call",
+          "targets": "Address array of all contracts to call"
+        }
+      }
+    },
+    "version": 1
+  },
+  "userdoc": {
+    "kind": "user",
+    "methods": {
+      "multicall(address[],bytes[])": {
+        "notice": "Call multiple functions from current contract and return the data from all of them if they all succeed"
+      },
+      "withdrawETH()": {
+        "notice": "Sends ETH back to owner of the MIMOProxy Can only be called by MIMOProxy owner"
+      }
+    },
+    "version": 1
+  },
+  "storageLayout": {
+    "storage": [],
+    "types": null
+  }
+}

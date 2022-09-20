@@ -1,9 +1,9 @@
 import chai, { expect } from "chai";
-import { deployMockContract, solidity } from "ethereum-waffle";
+import { solidity } from "ethereum-waffle";
 import { defaultAbiCoder } from "ethers/lib/utils";
-import { artifacts, deployments, ethers } from "hardhat";
-import { MIMOLeverage, MIMOProxy, MIMOProxyRegistry, MockLendingPool } from "../../typechain";
-import { getOneInchTxData, getSelector, OneInchSwapParams } from "../utils";
+import { deployments, ethers } from "hardhat";
+import { getSelector } from "../utils";
+import { baseSetup } from "./baseFixture";
 
 chai.use(solidity);
 
@@ -12,65 +12,30 @@ const BORROW_AMOUNT = ethers.utils.parseEther("10");
 const PAR_TO_SELL = ethers.utils.parseEther("5");
 
 const setup = deployments.createFixture(async () => {
-  await deployments.fixture(["Proxy"]);
-  const { deploy } = deployments;
-  const [owner] = await ethers.getSigners();
-
-  // Get artifacts
-  const [
-    addressProviderArtifact,
-    vaultsCoreArtifact,
-    vaultsDataProviderArtifact,
-    priceFeedArtifact,
-    stablexArtifact,
-    wethArtifact,
-    dexAddressProviderArtifact,
-  ] = await Promise.all([
-    artifacts.readArtifact("IAddressProvider"),
-    artifacts.readArtifact("IVaultsCore"),
-    artifacts.readArtifact("IVaultsDataProvider"),
-    artifacts.readArtifact("IPriceFeed"),
-    artifacts.readArtifact("ISTABLEX"),
-    artifacts.readArtifact("IWETH"),
-    artifacts.readArtifact("IDexAddressProvider"),
-  ]);
-
-  // Deploy mock contracts
-  const [addressProvider, vaultsCore, vaultsDataProvider, priceFeed, stablex, wmatic, dexAddressProvider] =
-    await Promise.all([
-      deployMockContract(owner, addressProviderArtifact.abi),
-      deployMockContract(owner, vaultsCoreArtifact.abi),
-      deployMockContract(owner, vaultsDataProviderArtifact.abi),
-      deployMockContract(owner, priceFeedArtifact.abi),
-      deployMockContract(owner, stablexArtifact.abi),
-      deployMockContract(owner, wethArtifact.abi),
-      deployMockContract(owner, dexAddressProviderArtifact.abi),
-    ]);
-
-  // Deploy and fetch non mock contrac
-  const mimoProxyRegistry: MIMOProxyRegistry = await ethers.getContract("MIMOProxyRegistry");
-
-  await deploy("MockLendingPool", {
-    from: owner.address,
-    args: [],
-  });
-  const lendingPool: MockLendingPool = await ethers.getContract("MockLendingPool");
-
-  await deploy("MIMOLeverage", {
-    from: owner.address,
-    args: [addressProvider.address, dexAddressProvider.address, lendingPool.address, mimoProxyRegistry.address],
-  });
-  const leverage: MIMOLeverage = await ethers.getContract("MIMOLeverage");
-
-  await mimoProxyRegistry.deploy();
-  const deployedMIMOProxy = await mimoProxyRegistry.getCurrentProxy(owner.address);
-  const mimoProxy: MIMOProxy = await ethers.getContractAt("MIMOProxy", deployedMIMOProxy);
+  const {
+    owner,
+    addressProvider,
+    vaultsCore,
+    vaultsDataProvider,
+    priceFeed,
+    stablex,
+    wmatic,
+    dexAddressProvider,
+    mimoProxyGuard,
+    mimoLeverage,
+    mimoProxy,
+    lendingPool,
+    mimoProxyFactory,
+    data,
+  } = await baseSetup();
 
   // Set permission on deployed MIMOProxy to allow MIMOLeverage callback
-  await mimoProxy.setPermission(
-    leverage.address,
-    leverage.address,
-    getSelector(leverage.interface.functions["leverageOperation(address,uint256,uint256,(uint256,bytes))"].format()),
+  await mimoProxyGuard.setPermission(
+    mimoLeverage.address,
+    mimoLeverage.address,
+    getSelector(
+      mimoLeverage.interface.functions["leverageOperation(address,uint256,uint256,(uint256,bytes))"].format(),
+    ),
     true,
   );
 
@@ -81,7 +46,7 @@ const setup = deployments.createFixture(async () => {
     wmatic.mock.transfer.returns(true),
     wmatic.mock.transferFrom.returns(true),
     wmatic.mock.balanceOf.withArgs(mimoProxy.address).returns(BORROW_AMOUNT),
-    wmatic.mock.balanceOf.withArgs(leverage.address).returns(BORROW_AMOUNT),
+    wmatic.mock.balanceOf.withArgs(mimoLeverage.address).returns(BORROW_AMOUNT),
     vaultsCore.mock.depositAndBorrow.returns(),
     dexAddressProvider.mock.getDex.returns(
       "0x11111112542D85B3EF69AE05771c2dCCff4fAa26",
@@ -95,17 +60,6 @@ const setup = deployments.createFixture(async () => {
     addressProvider.mock.core.returns(vaultsCore.address),
   ]);
 
-  // Fetch aggregator params
-  const swapParams: OneInchSwapParams = {
-    fromTokenAddress: "0xE2Aa7db6dA1dAE97C5f5C6914d285fBfCC32A128",
-    toTokenAddress: "0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270",
-    amount: PAR_TO_SELL.toString(),
-    fromAddress: mimoProxy.address,
-    slippage: 1,
-    disableEstimate: true,
-  };
-  const { data } = await getOneInchTxData(swapParams);
-
   return {
     owner,
     mimoProxy,
@@ -114,9 +68,9 @@ const setup = deployments.createFixture(async () => {
     wmatic,
     addressProvider,
     dexAddressProvider,
-    mimoProxyRegistry,
+    mimoProxyFactory,
     lendingPool,
-    leverage,
+    mimoLeverage,
     priceFeed,
     stablex,
     data,
@@ -124,27 +78,42 @@ const setup = deployments.createFixture(async () => {
 });
 
 describe("--- MIMOLeverage Unit Test ---", () => {
-  it("should be able to leverage with deposit", async () => {
-    const { mimoProxy, leverage, wmatic, owner, lendingPool, data } = await setup();
+  it("should initialize state variables correctly", async () => {
+    const { mimoProxyFactory, mimoLeverage } = await setup();
+    const _mimoProxyFactory = await mimoLeverage.proxyFactory();
+    expect(_mimoProxyFactory).to.be.equal(mimoProxyFactory.address);
+  });
+  it("should revert if trying to set state variables to address 0", async () => {
+    const { owner, addressProvider, dexAddressProvider, lendingPool } = await setup();
+    const { deploy } = deployments;
+    await expect(
+      deploy("MIMOLeverage", {
+        from: owner.address,
+        args: [addressProvider.address, dexAddressProvider.address, lendingPool.address, ethers.constants.AddressZero],
+      }),
+    ).to.be.revertedWith("CANNOT_SET_TO_ADDRESS_ZERO()");
+  });
+  it("should be able to mimoLeverage with deposit", async () => {
+    const { mimoProxy, mimoLeverage, wmatic, owner, lendingPool, data } = await setup();
     const leverageData = [
       DEPOSIT_AMOUNT,
       PAR_TO_SELL,
-      [wmatic.address, leverage.address, BORROW_AMOUNT],
+      [wmatic.address, mimoLeverage.address, BORROW_AMOUNT],
       [1, data.tx.data],
     ];
-    const MIMOProxyData = leverage.interface.encodeFunctionData("executeAction", [
+    const MIMOProxyData = mimoLeverage.interface.encodeFunctionData("executeAction", [
       defaultAbiCoder.encode(
         ["uint256", "uint256", "tuple(address,address,uint256)", "tuple(uint256,bytes)"],
         leverageData,
       ),
     ]);
-    await mimoProxy.execute(leverage.address, MIMOProxyData);
+    await mimoProxy.execute(mimoLeverage.address, MIMOProxyData);
     const params = defaultAbiCoder.encode(
       ["address", "uint256", "tuple(uint256, bytes)"],
       [owner.address, PAR_TO_SELL, [1, data.tx.data]],
     );
     await lendingPool.executeOperation(
-      leverage.address,
+      mimoLeverage.address,
       [wmatic.address],
       [BORROW_AMOUNT],
       [0],
@@ -152,22 +121,22 @@ describe("--- MIMOLeverage Unit Test ---", () => {
       params,
     );
   });
-  it("should be able to leverage without deposit", async () => {
-    const { mimoProxy, leverage, wmatic, owner, lendingPool, data } = await setup();
-    const leverageData = [0, PAR_TO_SELL, [wmatic.address, leverage.address, BORROW_AMOUNT], [1, data.tx.data]];
-    const MIMOProxyData = leverage.interface.encodeFunctionData("executeAction", [
+  it("should be able to mimoLeverage without deposit", async () => {
+    const { mimoProxy, mimoLeverage, wmatic, owner, lendingPool, data } = await setup();
+    const leverageData = [0, PAR_TO_SELL, [wmatic.address, mimoLeverage.address, BORROW_AMOUNT], [1, data.tx.data]];
+    const MIMOProxyData = mimoLeverage.interface.encodeFunctionData("executeAction", [
       defaultAbiCoder.encode(
         ["uint256", "uint256", "tuple(address,address,uint256)", "tuple(uint256,bytes)"],
         leverageData,
       ),
     ]);
-    await mimoProxy.execute(leverage.address, MIMOProxyData);
+    await mimoProxy.execute(mimoLeverage.address, MIMOProxyData);
     const params = defaultAbiCoder.encode(
       ["address", "uint256", "tuple(uint256, bytes)"],
       [owner.address, PAR_TO_SELL, [1, data.tx.data]],
     );
     await lendingPool.executeOperation(
-      leverage.address,
+      mimoLeverage.address,
       [wmatic.address],
       [BORROW_AMOUNT],
       [0],
@@ -176,46 +145,59 @@ describe("--- MIMOLeverage Unit Test ---", () => {
     );
   });
   it("should revert if collateralBalance < flashloanAmount", async () => {
-    const { mimoProxy, leverage, wmatic, owner, lendingPool, data } = await setup();
+    const { mimoProxy, mimoLeverage, wmatic, owner, lendingPool, data } = await setup();
     await wmatic.mock.balanceOf.withArgs(mimoProxy.address).returns(0);
     const leverageData = [
       DEPOSIT_AMOUNT,
       PAR_TO_SELL,
-      [wmatic.address, leverage.address, BORROW_AMOUNT],
+      [wmatic.address, mimoLeverage.address, BORROW_AMOUNT],
       [1, data.tx.data],
     ];
-    const MIMOProxyData = leverage.interface.encodeFunctionData("executeAction", [
+    const MIMOProxyData = mimoLeverage.interface.encodeFunctionData("executeAction", [
       defaultAbiCoder.encode(
         ["uint256", "uint256", "tuple(address,address,uint256)", "tuple(uint256,bytes)"],
         leverageData,
       ),
     ]);
-    await mimoProxy.execute(leverage.address, MIMOProxyData);
+    await mimoProxy.execute(mimoLeverage.address, MIMOProxyData);
     const params = defaultAbiCoder.encode(
       ["address", "uint256", "tuple(uint256, bytes)"],
       [owner.address, PAR_TO_SELL, [1, data.tx.data]],
     );
     await expect(
-      lendingPool.executeOperation(leverage.address, [wmatic.address], [BORROW_AMOUNT], [0], mimoProxy.address, params),
-    ).to.be.revertedWith("3");
+      lendingPool.executeOperation(
+        mimoLeverage.address,
+        [wmatic.address],
+        [BORROW_AMOUNT],
+        [0],
+        mimoProxy.address,
+        params,
+      ),
+    ).to.be.reverted;
+    await expect(
+      mimoLeverage.leverageOperation(wmatic.address, BORROW_AMOUNT, BORROW_AMOUNT.mul(2), {
+        dexIndex: ethers.constants.One,
+        dexTxData: [],
+      }),
+    ).to.be.revertedWith("CANNOT_REPAY_FLASHLOAN()");
   });
   it("should deposit remainingBalance in vault", async () => {
-    const { mimoProxy, leverage, wmatic, owner, lendingPool, data } = await setup();
+    const { mimoProxy, mimoLeverage, wmatic, owner, lendingPool, data } = await setup();
     await wmatic.mock.balanceOf.withArgs(mimoProxy.address).returns(BORROW_AMOUNT.mul(2));
-    const leverageData = [0, PAR_TO_SELL, [wmatic.address, leverage.address, BORROW_AMOUNT], [1, data.tx.data]];
-    const MIMOProxyData = leverage.interface.encodeFunctionData("executeAction", [
+    const leverageData = [0, PAR_TO_SELL, [wmatic.address, mimoLeverage.address, BORROW_AMOUNT], [1, data.tx.data]];
+    const MIMOProxyData = mimoLeverage.interface.encodeFunctionData("executeAction", [
       defaultAbiCoder.encode(
         ["uint256", "uint256", "tuple(address,address,uint256)", "tuple(uint256,bytes)"],
         leverageData,
       ),
     ]);
-    await mimoProxy.execute(leverage.address, MIMOProxyData);
+    await mimoProxy.execute(mimoLeverage.address, MIMOProxyData);
     const params = defaultAbiCoder.encode(
       ["address", "uint256", "tuple(uint256, bytes)"],
       [owner.address, PAR_TO_SELL, [1, data.tx.data]],
     );
     await lendingPool.executeOperation(
-      leverage.address,
+      mimoLeverage.address,
       [wmatic.address],
       [BORROW_AMOUNT],
       [0],
@@ -224,68 +206,88 @@ describe("--- MIMOLeverage Unit Test ---", () => {
     );
   });
   it("should revert if proxy or router address is address zero", async () => {
-    const { mimoProxy, leverage, wmatic, owner, lendingPool, data, dexAddressProvider } = await setup();
+    const { mimoProxy, mimoLeverage, wmatic, owner, lendingPool, data, dexAddressProvider } = await setup();
     await dexAddressProvider.mock.getDex.returns(
       ethers.constants.AddressZero,
       "0x11111112542D85B3EF69AE05771c2dCCff4fAa26",
     );
-    const leverageData = [0, PAR_TO_SELL, [wmatic.address, leverage.address, BORROW_AMOUNT], [1, data.tx.data]];
-    const MIMOProxyData = leverage.interface.encodeFunctionData("executeAction", [
+    const leverageData = [0, PAR_TO_SELL, [wmatic.address, mimoLeverage.address, BORROW_AMOUNT], [1, data.tx.data]];
+    const MIMOProxyData = mimoLeverage.interface.encodeFunctionData("executeAction", [
       defaultAbiCoder.encode(
         ["uint256", "uint256", "tuple(address,address,uint256)", "tuple(uint256,bytes)"],
         leverageData,
       ),
     ]);
-    await mimoProxy.execute(leverage.address, MIMOProxyData);
+    await mimoProxy.execute(mimoLeverage.address, MIMOProxyData);
     const params = defaultAbiCoder.encode(
       ["address", "uint256", "tuple(uint256, bytes)"],
       [owner.address, PAR_TO_SELL, [1, data.tx.data]],
     );
     await expect(
-      lendingPool.executeOperation(leverage.address, [wmatic.address], [BORROW_AMOUNT], [0], mimoProxy.address, params),
-    ).to.be.revertedWith("1");
+      lendingPool.executeOperation(
+        mimoLeverage.address,
+        [wmatic.address],
+        [BORROW_AMOUNT],
+        [0],
+        mimoProxy.address,
+        params,
+      ),
+    ).to.be.reverted;
     await dexAddressProvider.mock.getDex.returns(
       "0x11111112542D85B3EF69AE05771c2dCCff4fAa26",
       ethers.constants.AddressZero,
     );
     await expect(
-      lendingPool.executeOperation(leverage.address, [wmatic.address], [BORROW_AMOUNT], [0], mimoProxy.address, params),
-    ).to.be.revertedWith("1");
+      lendingPool.executeOperation(
+        mimoLeverage.address,
+        [wmatic.address],
+        [BORROW_AMOUNT],
+        [0],
+        mimoProxy.address,
+        params,
+      ),
+    ).to.be.reverted;
+    await expect(
+      mimoLeverage.leverageOperation(wmatic.address, BORROW_AMOUNT, BORROW_AMOUNT, {
+        dexIndex: ethers.constants.Zero,
+        dexTxData: [],
+      }),
+    ).to.be.revertedWith("INVALID_AGGREGATOR()");
   });
   it("should revert if initiator is not mimoProxy", async () => {
-    const { mimoProxy, leverage, wmatic, owner, lendingPool, data } = await setup();
-    const leverageData = [0, PAR_TO_SELL, [wmatic.address, leverage.address, BORROW_AMOUNT], [1, data.tx.data]];
-    const MIMOProxyData = leverage.interface.encodeFunctionData("executeAction", [
+    const { mimoProxy, mimoLeverage, wmatic, owner, lendingPool, data } = await setup();
+    const leverageData = [0, PAR_TO_SELL, [wmatic.address, mimoLeverage.address, BORROW_AMOUNT], [1, data.tx.data]];
+    const MIMOProxyData = mimoLeverage.interface.encodeFunctionData("executeAction", [
       defaultAbiCoder.encode(
         ["uint256", "uint256", "tuple(address,address,uint256)", "tuple(uint256,bytes)"],
         leverageData,
       ),
     ]);
-    await mimoProxy.execute(leverage.address, MIMOProxyData);
+    await mimoProxy.execute(mimoLeverage.address, MIMOProxyData);
     const params = defaultAbiCoder.encode(
       ["address", "uint256", "tuple(uint256, bytes)"],
       [owner.address, PAR_TO_SELL, [1, data.tx.data]],
     );
     await expect(
-      lendingPool.executeOperation(leverage.address, [wmatic.address], [BORROW_AMOUNT], [0], owner.address, params),
+      lendingPool.executeOperation(mimoLeverage.address, [wmatic.address], [BORROW_AMOUNT], [0], owner.address, params),
     ).to.be.revertedWith(`INITIATOR_NOT_AUTHORIZED("${owner.address}", "${mimoProxy.address}")`);
   });
   it("should revert if executeOperation is called by other than lending pool", async () => {
-    const { mimoProxy, leverage, wmatic, owner, data, lendingPool } = await setup();
-    const leverageData = [0, PAR_TO_SELL, [wmatic.address, leverage.address, BORROW_AMOUNT], [1, data.tx.data]];
-    const MIMOProxyData = leverage.interface.encodeFunctionData("executeAction", [
+    const { mimoProxy, mimoLeverage, wmatic, owner, data, lendingPool } = await setup();
+    const leverageData = [0, PAR_TO_SELL, [wmatic.address, mimoLeverage.address, BORROW_AMOUNT], [1, data.tx.data]];
+    const MIMOProxyData = mimoLeverage.interface.encodeFunctionData("executeAction", [
       defaultAbiCoder.encode(
         ["uint256", "uint256", "tuple(address,address,uint256)", "tuple(uint256,bytes)"],
         leverageData,
       ),
     ]);
-    await mimoProxy.execute(leverage.address, MIMOProxyData);
+    await mimoProxy.execute(mimoLeverage.address, MIMOProxyData);
     const params = defaultAbiCoder.encode(
       ["address", "uint256", "tuple(uint256, bytes)"],
       [owner.address, PAR_TO_SELL, [1, data.tx.data]],
     );
     await expect(
-      leverage.executeOperation([wmatic.address], [BORROW_AMOUNT], [0], mimoProxy.address, params),
+      mimoLeverage.executeOperation([wmatic.address], [BORROW_AMOUNT], [0], mimoProxy.address, params),
     ).to.be.revertedWith(`CALLER_NOT_LENDING_POOL("${owner.address}", "${lendingPool.address}")`);
   });
 });

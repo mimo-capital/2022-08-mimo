@@ -20,13 +20,15 @@ const func: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
   const vaultsCore = await addressProvider.core();
   const vaultsDataProvider = await addressProvider.vaultsData();
   const stablex = await addressProvider.stablex();
+  const mimoProxyFactory = await hre.deployments.get("MIMOProxyFactory");
 
   await deploy("MIMOVaultActions", {
     from: deployer,
-    args: [vaultsCore, vaultsDataProvider, stablex],
+    args: [vaultsCore, vaultsDataProvider, stablex, mimoProxyFactory.address],
   });
 };
 
 export default func;
 func.id = "deploy_mimo_rebalance";
+func.dependencies = ["MIMOProxyFactory"];
 func.tags = ["Action", "MIMOVaultActions"];

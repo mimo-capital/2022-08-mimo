@@ -49,7 +49,6 @@ contract MIMORebalance is MIMOPausable, MIMOFlashLoan, MIMOSwap, IMIMORebalance 
       (FlashLoanData, RebalanceData, SwapData)
     );
     bytes memory params = abi.encode(msg.sender, rbData, swapData);
-
     _takeFlashLoan(flData, params);
   }
 
@@ -127,8 +126,8 @@ contract MIMORebalance is MIMOPausable, MIMOFlashLoan, MIMOSwap, IMIMORebalance 
     _aggregatorSwap(fromCollateral, swapAmount, swapData);
     uint256 depositAmount = rbData.toCollateral.balanceOf(address(this));
     rbData.toCollateral.safeIncreaseAllowance(address(core), depositAmount);
-    core.depositAndBorrow(address(rbData.toCollateral), depositAmount, rbData.mintAmount + fee);
-    core.repay(rbData.vaultId, rbData.mintAmount);
+    core.depositAndBorrow(address(rbData.toCollateral), depositAmount, rbData.mintAmount);
+    core.repay(rbData.vaultId, rbData.mintAmount - fee);
 
     if (flashloanRepayAmount > a.vaultsData().vaultCollateralBalance(rbData.vaultId)) {
       revert Errors.CANNOT_REPAY_FLASHLOAN();

@@ -4,6 +4,8 @@ pragma solidity 0.8.10;
 import "../actions/interfaces/IMIMOFlashLoan.sol";
 
 contract MockLendingPool {
+  uint256 public constant FLASHLOAN_PREMIUM_TOTAL = 5;
+
   function executeOperation(
     IMIMOFlashLoan action,
     address[] calldata assets,
