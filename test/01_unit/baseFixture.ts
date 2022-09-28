@@ -1,5 +1,6 @@
 import chai from "chai";
 import { deployMockContract, solidity } from "ethereum-waffle";
+import { keccak256 } from "ethers/lib/utils";
 import { artifacts, deployments, ethers } from "hardhat";
 import {
   CollisionAttacker,
@@ -8,6 +9,7 @@ import {
   MIMOLeverage,
   MIMOPausable,
   MIMOProxy,
+  MIMOProxyActions,
   MIMOProxyFactory,
   MIMOProxyGuard,
   MIMORebalance,
@@ -117,6 +119,10 @@ export const baseSetup = deployments.createFixture(async () => {
     from: owner.address,
     args: [addressProvider.address, mimoProxyFactory.address],
   });
+  await deploy("MIMOProxyActions", {
+    from: owner.address,
+    args: [],
+  });
 
   const [
     mimoRebalance,
@@ -127,6 +133,7 @@ export const baseSetup = deployments.createFixture(async () => {
     mimoPausable,
     collisionAttacker,
     mimoAutoAction,
+    mimoProxyActions,
   ] = (await Promise.all([
     ethers.getContract("MIMORebalance"),
     ethers.getContract("MIMOEmptyVault"),
@@ -136,6 +143,7 @@ export const baseSetup = deployments.createFixture(async () => {
     ethers.getContract("MIMOPausable"),
     ethers.getContract("CollisionAttacker"),
     ethers.getContract("MIMOAutoAction"),
+    ethers.getContract("MIMOProxyActions"),
   ])) as [
     MIMORebalance,
     MIMOEmptyVault,
@@ -145,6 +153,7 @@ export const baseSetup = deployments.createFixture(async () => {
     MIMOPausable,
     CollisionAttacker,
     MIMOAutoAction,
+    MIMOProxyActions,
   ];
 
   await mimoProxyFactory.deploy();
@@ -167,24 +176,18 @@ export const baseSetup = deployments.createFixture(async () => {
 
   // Mock required function calls
   await Promise.all([
-    wmatic.mock.transfer.returns(true),
-    wmatic.mock.approve.returns(true),
-    wmatic.mock.allowance.returns(DELEVERAGE_AMOUNT),
-    wmatic.mock.balanceOf.withArgs(mimoRebalance.address).returns(DELEVERAGE_AMOUNT),
     dexAddressProvider.mock.getDex.returns(
       "0x11111112542D85B3EF69AE05771c2dCCff4fAa26",
       "0x11111112542D85B3EF69AE05771c2dCCff4fAa26",
     ),
-    usdc.mock.balanceOf.withArgs(mimoProxy.address).returns(5000000),
-    usdc.mock.approve.returns(true),
-    usdc.mock.allowance.withArgs(mimoProxy.address, vaultsCore.address).returns(5000000),
-    vaultsCore.mock.depositAndBorrow.returns(),
-    vaultsCore.mock.repay.returns(),
-    vaultsCore.mock.withdraw.returns(),
+    addressProvider.mock.vaultsData.returns(vaultsDataProvider.address),
+    addressProvider.mock.controller.returns(accessController.address),
+    addressProvider.mock.priceFeed.returns(priceFeed.address),
+    addressProvider.mock.config.returns(configProvider.address),
     addressProvider.mock.stablex.returns(stablex.address),
     addressProvider.mock.core.returns(vaultsCore.address),
-    addressProvider.mock.vaultsData.returns(vaultsDataProvider.address),
-    vaultsDataProvider.mock.vaultCollateralBalance.withArgs(1).returns(DELEVERAGE_AMOUNT),
+    accessController.mock.MANAGER_ROLE.returns(keccak256(ethers.utils.toUtf8Bytes("MANAGER_ROLE"))),
+    vaultsDataProvider.mock.vaultOwner.returns(mimoProxy.address),
   ]);
 
   // Fetch aggregator params
@@ -223,6 +226,7 @@ export const baseSetup = deployments.createFixture(async () => {
     mimoProxyGuard,
     accessController,
     configProvider,
+    mimoProxyActions,
     deploy,
   };
 });

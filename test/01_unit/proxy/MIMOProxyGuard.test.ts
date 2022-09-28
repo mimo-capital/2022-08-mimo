@@ -1,30 +1,27 @@
 import chai, { expect } from "chai";
 import { solidity } from "ethereum-waffle";
 import { deployments, ethers } from "hardhat";
-import { MIMOProxy, MIMOProxyActions, MIMOProxyFactory, MIMOProxyGuard } from "../../../typechain";
+import { MIMOProxyGuard } from "../../../typechain";
 import { getSelector } from "../../utils";
+import { baseSetup } from "../baseFixture";
 
 chai.use(solidity);
 
 const setup = deployments.createFixture(async () => {
-  await deployments.fixture(["Proxy", "MIMOProxyActions"]);
+  const { mimoVaultActions, wmatic, mimoProxyFactory, mimoProxy, mimoProxyGuard, mimoProxyActions } = await baseSetup();
   const { deploy } = deployments;
-  const [owner, alice] = await ethers.getSigners();
-  const mimoProxyFactory: MIMOProxyFactory = await ethers.getContract("MIMOProxyFactory");
-  await mimoProxyFactory.deploy();
-  const mimoProxyAddress = await mimoProxyFactory.getCurrentProxy(owner.address);
-  const mimoProxy: MIMOProxy = await ethers.getContractAt("MIMOProxy", mimoProxyAddress);
-  const mimoProxyState = await mimoProxyFactory.getProxyState(mimoProxy.address);
-  const mimoProxyGuard: MIMOProxyGuard = await ethers.getContractAt("MIMOProxyGuard", mimoProxyState.proxyGuard);
-  const mimoProxyActions: MIMOProxyActions = await ethers.getContract("MIMOProxyActions");
+  const [owner, alice, bob] = await ethers.getSigners();
 
   return {
     owner,
     alice,
+    bob,
     mimoProxy,
     mimoProxyFactory,
     mimoProxyGuard,
     mimoProxyActions,
+    mimoVaultActions,
+    wmatic,
     deploy,
   };
 });

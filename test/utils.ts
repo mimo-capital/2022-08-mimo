@@ -1,6 +1,6 @@
 import axios from "axios";
 import { BigNumber } from "ethers";
-import { concat, hexlify } from "ethers/lib/utils";
+import { concat, hexlify, parseEther } from "ethers/lib/utils";
 import { ethers } from "hardhat";
 
 export type OneInchSwapParams = {
@@ -84,6 +84,7 @@ export const getLatestTimestamp = async () => {
   return ethers.BigNumber.from(latestBlock.timestamp);
 };
 
+export const ZERO = parseEther("0");
 export const WAD = ethers.utils.parseEther("1");
 export const HALF_WAD = WAD.div(2);
 

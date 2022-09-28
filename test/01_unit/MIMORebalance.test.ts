@@ -57,9 +57,6 @@ export const setup = deployments.createFixture(async () => {
     vaultsCore.mock.depositAndBorrow.returns(),
     vaultsCore.mock.repay.returns(),
     vaultsCore.mock.withdraw.returns(),
-    addressProvider.mock.stablex.returns(stablex.address),
-    addressProvider.mock.core.returns(vaultsCore.address),
-    addressProvider.mock.vaultsData.returns(vaultsDataProvider.address),
     vaultsDataProvider.mock.vaultCollateralBalance.withArgs(1).returns(DELEVERAGE_AMOUNT),
   ]);
 

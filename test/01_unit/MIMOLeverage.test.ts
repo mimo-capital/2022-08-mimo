@@ -56,8 +56,6 @@ const setup = deployments.createFixture(async () => {
     stablex.mock.approve.returns(true),
     vaultsCore.mock.depositAndBorrow.returns(),
     vaultsCore.mock.deposit.returns(),
-    addressProvider.mock.stablex.returns(stablex.address),
-    addressProvider.mock.core.returns(vaultsCore.address),
   ]);
 
   return {

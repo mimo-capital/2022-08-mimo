@@ -44,10 +44,6 @@ const setup = deployments.createFixture(async () => {
 
   // Mock required function calls
   await Promise.all([
-    addressProvider.mock.vaultsData.returns(vaultsDataProvider.address),
-    addressProvider.mock.controller.returns(accessController.address),
-    addressProvider.mock.priceFeed.returns(priceFeed.address),
-    addressProvider.mock.config.returns(configProvider.address),
     vaultsDataProvider.mock.vaultOwner.returns(mimoProxy.address),
     vaultsDataProvider.mock.vaultDebt.withArgs(1).returns(MINT_AMOUNT),
     vaultsDataProvider.mock.vaultDebt.withArgs(2).returns(MINT_AMOUNT),
@@ -67,7 +63,16 @@ const setup = deployments.createFixture(async () => {
       .returns(DEPOSIT_AMOUNT.sub(DELEVERAGE_AMOUNT)),
     stablex.mock.transfer.returns(true),
     wmatic.mock.balanceOf.withArgs(managedRebalance.address).returns(DELEVERAGE_AMOUNT),
+    wmatic.mock.transfer.returns(true),
+    wmatic.mock.approve.returns(true),
+    wmatic.mock.allowance.returns(DELEVERAGE_AMOUNT),
     configProvider.mock.collateralMinCollateralRatio.withArgs(usdc.address).returns(ethers.utils.parseUnits("1.1", 18)),
+    usdc.mock.balanceOf.withArgs(mimoProxy.address).returns(5000000),
+    usdc.mock.approve.returns(true),
+    usdc.mock.allowance.withArgs(mimoProxy.address, vaultsCore.address).returns(5000000),
+    vaultsCore.mock.depositAndBorrow.returns(),
+    vaultsCore.mock.repay.returns(),
+    vaultsCore.mock.withdraw.returns(),
   ]);
 
   // Set permission on deployed MIMOProxy to allow MIMORebalance callback

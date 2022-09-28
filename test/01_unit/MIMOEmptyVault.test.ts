@@ -54,7 +54,6 @@ const setup = deployments.createFixture(async () => {
     addressProvider.mock.stablex.returns(stablex.address),
     addressProvider.mock.core.returns(vaultsCore.address),
     vaultsDataProvider.mock.vaultCollateralBalance.returns(FL_AMOUNT),
-    addressProvider.mock.vaultsData.returns(vaultsDataProvider.address),
     stablex.mock.approve.returns(true),
     stablex.mock.allowance.returns(FL_AMOUNT),
     stablex.mock.balanceOf.withArgs(mimoProxy.address).returns(FL_AMOUNT),

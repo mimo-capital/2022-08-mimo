@@ -1,6 +1,5 @@
 import chai, { expect } from "chai";
 import { solidity } from "ethereum-waffle";
-import { keccak256 } from "ethers/lib/utils";
 import { deployments, ethers } from "hardhat";
 import { baseSetup } from "../baseFixture";
 
@@ -22,10 +21,6 @@ const setup = deployments.createFixture(async () => {
 
   // Mock required function calls
   await Promise.all([
-    addressProvider.mock.controller.returns(accessController.address),
-    addressProvider.mock.vaultsData.returns(vaultsDataProvider.address),
-    addressProvider.mock.config.returns(configProvider.address),
-    accessController.mock.MANAGER_ROLE.returns(keccak256(ethers.utils.toUtf8Bytes("MANAGER_ROLE"))),
     accessController.mock.hasRole.returns(true),
     vaultsDataProvider.mock.vaultOwner.returns(mimoProxy.address),
     configProvider.mock.collateralMinCollateralRatio.withArgs(usdc.address).returns(ethers.utils.parseEther("1.1")),

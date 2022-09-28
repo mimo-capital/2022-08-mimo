@@ -43,11 +43,6 @@ const setup = deployments.createFixture(async () => {
 
   // Mock required function calls
   await Promise.all([
-    addressProvider.mock.vaultsData.returns(vaultsDataProvider.address),
-    addressProvider.mock.controller.returns(accessController.address),
-    addressProvider.mock.priceFeed.returns(priceFeed.address),
-    addressProvider.mock.config.returns(configProvider.address),
-    vaultsDataProvider.mock.vaultOwner.returns(mimoProxy.address),
     vaultsDataProvider.mock.vaultDebt.withArgs(1).returns(BORROW_AMOUNT),
     vaultsDataProvider.mock.vaultDebt.withArgs(2).returns(MINT_AMOUNT),
     vaultsDataProvider.mock.vaultCollateralBalance.withArgs(1).returns(DEPOSIT_AMOUNT),
@@ -55,7 +50,6 @@ const setup = deployments.createFixture(async () => {
     vaultsDataProvider.mock.vaultCollateralType.withArgs(1).returns(wmatic.address),
     vaultsDataProvider.mock.vaultCollateralType.withArgs(2).returns(usdc.address),
     vaultsDataProvider.mock.vaultId.withArgs(usdc.address, mimoProxy.address).returns(2),
-    accessController.mock.MANAGER_ROLE.returns(ethers.utils.keccak256(ethers.utils.toUtf8Bytes("MANAGER_ROLE"))),
     accessController.mock.hasRole.returns(true),
     priceFeed.mock.convertFrom.withArgs(wmatic.address, DEPOSIT_AMOUNT).returns(ethers.utils.parseEther("200")),
     priceFeed.mock.convertFrom

@@ -30,7 +30,7 @@ import {
 import { getLatestTimestamp } from "../utils";
 
 export const baseSetup = deployments.createFixture(async () => {
-  const [owner] = await ethers.getSigners();
+  const [owner, alice, bob] = await ethers.getSigners();
   const chainAddresses = ADDRESSES["137"];
   process.env.FORK_ID = "137";
 
@@ -173,6 +173,8 @@ export const baseSetup = deployments.createFixture(async () => {
 
   return {
     owner,
+    alice,
+    bob,
     mimoProxyGuard,
     mimoProxyFactory,
     mimoProxy,

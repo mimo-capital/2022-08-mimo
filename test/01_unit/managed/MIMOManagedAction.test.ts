@@ -1,6 +1,5 @@
 import chai, { expect } from "chai";
 import { solidity } from "ethereum-waffle";
-import { keccak256 } from "ethers/lib/utils";
 import { deployments, ethers } from "hardhat";
 import { MIMOManagedAction } from "../../../typechain";
 import { baseSetup } from "../baseFixture";
@@ -18,14 +17,7 @@ const setup = deployments.createFixture(async () => {
   });
   const managedAction: MIMOManagedAction = await ethers.getContract("MIMOManagedAction");
 
-  // Mock required function calls
-  await Promise.all([
-    addressProvider.mock.controller.returns(accessController.address),
-    addressProvider.mock.vaultsData.returns(vaultsDataProvider.address),
-    accessController.mock.MANAGER_ROLE.returns(keccak256(ethers.utils.toUtf8Bytes("MANAGER_ROLE"))),
-    accessController.mock.hasRole.returns(true),
-    vaultsDataProvider.mock.vaultOwner.returns(mimoProxy.address),
-  ]);
+  await accessController.mock.hasRole.returns(true);
 
   await managedAction.setManager(manager.address, true);
 
