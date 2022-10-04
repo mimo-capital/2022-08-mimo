@@ -1,0 +1,615 @@
+{
+  "address": "0x44e3c7B3994ce6C29a4E64A16ff998DAb5f996a3",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_mimoProxyGuardBase",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "owner",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "ownedProxy",
+          "type": "address"
+        }
+      ],
+      "name": "ALREADY_OWNER",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "caller",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "pendingOwner",
+          "type": "address"
+        }
+      ],
+      "name": "CALLER_NOT_PENDING_OWNER",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "CANNOT_SET_TO_ADDRESS_ZERO",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "owner",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "caller",
+          "type": "address"
+        }
+      ],
+      "name": "NOT_OWNER",
+      "type": "error"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "proxy",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "minGas",
+          "type": "uint256"
+        }
+      ],
+      "name": "MinGasSet",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "proxy",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "newOwner",
+          "type": "address"
+        }
+      ],
+      "name": "OwnershipClaimed",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "proxy",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "previousOwner",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "newOwner",
+          "type": "address"
+        }
+      ],
+      "name": "OwnershipTransferred",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "proxy",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "newProxyGuard",
+          "type": "address"
+        }
+      ],
+      "name": "PermissionsCleared",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "owner",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "proxy",
+          "type": "address"
+        },
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "owner",
+              "type": "address"
+            },
+            {
+              "internalType": "contract IMIMOProxyGuard",
+              "name": "proxyGuard",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "minGas",
+              "type": "uint256"
+            }
+          ],
+          "indexed": false,
+          "internalType": "struct IMIMOProxyFactory.ProxyState",
+          "name": "proxyState",
+          "type": "tuple"
+        }
+      ],
+      "name": "ProxyDeployed",
+      "type": "event"
+    },
+    {
+      "inputs": [],
+      "name": "VERSION",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "proxy",
+          "type": "address"
+        },
+        {
+          "internalType": "bool",
+          "name": "clear",
+          "type": "bool"
+        }
+      ],
+      "name": "claimOwnership",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "proxy",
+          "type": "address"
+        }
+      ],
+      "name": "clearPermissions",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "deploy",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "owner",
+          "type": "address"
+        }
+      ],
+      "name": "getCurrentProxy",
+      "outputs": [
+        {
+          "internalType": "contract IMIMOProxy",
+          "name": "proxy",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "proxy",
+          "type": "address"
+        }
+      ],
+      "name": "getPendingOwner",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "pendingOwner",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "proxy",
+          "type": "address"
+        }
+      ],
+      "name": "getProxyState",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "owner",
+              "type": "address"
+            },
+            {
+              "internalType": "contract IMIMOProxyGuard",
+              "name": "proxyGuard",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "minGas",
+              "type": "uint256"
+            }
+          ],
+          "internalType": "struct IMIMOProxyFactory.ProxyState",
+          "name": "proxyState",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "proxy",
+          "type": "address"
+        }
+      ],
+      "name": "isProxy",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "result",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "mimoProxyGuardBase",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "proxy",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "minGas",
+          "type": "uint256"
+        }
+      ],
+      "name": "setMinGas",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "proxy",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "newOwner",
+          "type": "address"
+        }
+      ],
+      "name": "transferOwnership",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "transactionHash": "0xe2585f3bb4c823f018646ad4a3e0879acdbb9278efa8d84cdecf788467b3f191",
+  "receipt": {
+    "to": null,
+    "from": "0x52004FfDf72fb793d5128c9F96d631F8770e2DaC",
+    "contractAddress": "0x44e3c7B3994ce6C29a4E64A16ff998DAb5f996a3",
+    "transactionIndex": 1,
+    "gasUsed": "1193441",
+    "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000002000000000000000000800000000000080000000110000000000000000000000000000000000000000000000010000000000080000000000000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000004000000000000000000001000000000000000000002000000000100000000000000000000000080000000000000000000000000000000000000000000000100000",
+    "blockHash": "0xefbc8722bd8a6e2be8ce8b8a169cf441294ed02c4d67a07362ebfeb49c3d13b2",
+    "transactionHash": "0xe2585f3bb4c823f018646ad4a3e0879acdbb9278efa8d84cdecf788467b3f191",
+    "logs": [
+      {
+        "transactionIndex": 1,
+        "blockNumber": 32721819,
+        "transactionHash": "0xe2585f3bb4c823f018646ad4a3e0879acdbb9278efa8d84cdecf788467b3f191",
+        "address": "0x0000000000000000000000000000000000001010",
+        "topics": [
+          "0x4dfe1bbbcf077ddc3e01291eea2d5c70c2b422b415d95645b9adcfd678cb1d63",
+          "0x0000000000000000000000000000000000000000000000000000000000001010",
+          "0x00000000000000000000000052004ffdf72fb793d5128c9f96d631f8770e2dac",
+          "0x00000000000000000000000002f70172f7f490653665c9bfac0666147c8af1f5"
+        ],
+        "data": "0x000000000000000000000000000000000000000000000000027bfe3d6b3f485c000000000000000000000000000000000000000000000000a2633b77341ad000000000000000000000000000000000000000000000000028c4cc8f3b5dbf73240000000000000000000000000000000000000000000000009fe73d39c8db87a4000000000000000000000000000000000000000000000028c7488d78c8febb80",
+        "logIndex": 6,
+        "blockHash": "0xefbc8722bd8a6e2be8ce8b8a169cf441294ed02c4d67a07362ebfeb49c3d13b2"
+      }
+    ],
+    "blockNumber": 32721819,
+    "cumulativeGasUsed": "1320954",
+    "status": 1,
+    "byzantium": true
+  },
+  "args": [
+    "0x2BaD16A8fc3BB58733D3742D84226FBDe200C27e"
+  ],
+  "numDeployments": 1,
+  "solcInputHash": "f32a31898ee3e7d355d788de2c8f3c93",
+  "metadata": "{\"compiler\":{\"version\":\"0.8.10+commit.fc410830\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_mimoProxyGuardBase\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"ownedProxy\",\"type\":\"address\"}],\"name\":\"ALREADY_OWNER\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"caller\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"pendingOwner\",\"type\":\"address\"}],\"name\":\"CALLER_NOT_PENDING_OWNER\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"CANNOT_SET_TO_ADDRESS_ZERO\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"caller\",\"type\":\"address\"}],\"name\":\"NOT_OWNER\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"proxy\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"minGas\",\"type\":\"uint256\"}],\"name\":\"MinGasSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"proxy\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"OwnershipClaimed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"proxy\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"previousOwner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"proxy\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"newProxyGuard\",\"type\":\"address\"}],\"name\":\"PermissionsCleared\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"proxy\",\"type\":\"address\"},{\"components\":[{\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"},{\"internalType\":\"contract IMIMOProxyGuard\",\"name\":\"proxyGuard\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"minGas\",\"type\":\"uint256\"}],\"indexed\":false,\"internalType\":\"struct IMIMOProxyFactory.ProxyState\",\"name\":\"proxyState\",\"type\":\"tuple\"}],\"name\":\"ProxyDeployed\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"VERSION\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"proxy\",\"type\":\"address\"},{\"internalType\":\"bool\",\"name\":\"clear\",\"type\":\"bool\"}],\"name\":\"claimOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"proxy\",\"type\":\"address\"}],\"name\":\"clearPermissions\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"deploy\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"}],\"name\":\"getCurrentProxy\",\"outputs\":[{\"internalType\":\"contract IMIMOProxy\",\"name\":\"proxy\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"proxy\",\"type\":\"address\"}],\"name\":\"getPendingOwner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"pendingOwner\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"proxy\",\"type\":\"address\"}],\"name\":\"getProxyState\",\"outputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"},{\"internalType\":\"contract IMIMOProxyGuard\",\"name\":\"proxyGuard\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"minGas\",\"type\":\"uint256\"}],\"internalType\":\"struct IMIMOProxyFactory.ProxyState\",\"name\":\"proxyState\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"proxy\",\"type\":\"address\"}],\"name\":\"isProxy\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"result\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"mimoProxyGuardBase\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"proxy\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"minGas\",\"type\":\"uint256\"}],\"name\":\"setMinGas\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"proxy\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"kind\":\"dev\",\"methods\":{\"claimOwnership(address,bool)\":{\"params\":{\"clear\":\"Clear existing proxy permissions if true and maintain them if false\",\"proxy\":\"Address of the MIMOProxy to claim\"}},\"clearPermissions(address)\":{\"params\":{\"proxy\":\"Addess of the MIMOProxy to clear\"}},\"deploy()\":{\"details\":\"Sets \\\"msg.sender\\\" as the owner of the MIMOProxy.\"},\"getCurrentProxy(address)\":{\"params\":{\"owner\":\"The address of the owner of the current MIMOProxy.\"}},\"getPendingOwner(address)\":{\"params\":{\"proxy\":\"Address of the MIMOProxy\"},\"returns\":{\"pendingOwner\":\"that has yet to claim his ownership\"}},\"getProxyState(address)\":{\"details\":\"MIMOProxy state management is outsourced to this contract to prevent storage collisions\",\"params\":{\"proxy\":\"Address of the MIMOProxy\"},\"returns\":{\"proxyState\":\"as a ProxyState struct containing a MIMOProxy state variables\"}},\"isProxy(address)\":{\"params\":{\"proxy\":\"Address of the MIMOProxy to check\"},\"returns\":{\"result\":\"equals true if proxy has been deployed and false if not\"}},\"setMinGas(address,uint256)\":{\"params\":{\"minGas\":\"Gas to reserve for running the remainder of the \\\"execute\\\" function after the DELEGATECALL in the  MIMOProxy. Prevents the proxy from becoming unusable if EVM opcode gas costs change in the future.\",\"proxy\":\"Address of the MIMOProxy\"}},\"transferOwnership(address,address)\":{\"params\":{\"newOwner\":\"Address of the new owner\",\"proxy\":\"Address ot the MIMOProxy to transfer\"}}},\"title\":\"MIMOProxyFactory\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{\"claimOwnership(address,bool)\":{\"notice\":\"Needs to be called by `pendingOwner` to claim ownership\"},\"clearPermissions(address)\":{\"notice\":\"Clear all permissions from the MIMOProxy by deploying a new MIMOProxyGuard Can only be called by the MIMOProxy `owner`\"},\"deploy()\":{\"notice\":\"Deploys a new MIMOProxy and MIMOProxyGuard\"},\"getCurrentProxy(address)\":{\"notice\":\"Gets the current MIMOProxy of the given owner.\"},\"getProxyState(address)\":{\"notice\":\"Returns a MIMOProxy state\"},\"transferOwnership(address,address)\":{\"notice\":\"Transfers ownership to `newOwner`. Either directly or claimable by the new pending owner. Can only be invoked by the current MIMOProxy `owner`\"}},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/proxy/MIMOProxyFactory.sol\":\"MIMOProxyFactory\"},\"evmVersion\":\"london\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"ipfs\",\"useLiteralContent\":true},\"optimizer\":{\"enabled\":true,\"runs\":200},\"remappings\":[]},\"sources\":{\"@openzeppelin/contracts/proxy/Clones.sol\":{\"content\":\"// SPDX-License-Identifier: MIT\\n// OpenZeppelin Contracts v4.4.1 (proxy/Clones.sol)\\n\\npragma solidity ^0.8.0;\\n\\n/**\\n * @dev https://eips.ethereum.org/EIPS/eip-1167[EIP 1167] is a standard for\\n * deploying minimal proxy contracts, also known as \\\"clones\\\".\\n *\\n * > To simply and cheaply clone contract functionality in an immutable way, this standard specifies\\n * > a minimal bytecode implementation that delegates all calls to a known, fixed address.\\n *\\n * The library includes functions to deploy a proxy using either `create` (traditional deployment) or `create2`\\n * (salted deterministic deployment). It also includes functions to predict the addresses of clones deployed using the\\n * deterministic method.\\n *\\n * _Available since v3.4._\\n */\\nlibrary Clones {\\n    /**\\n     * @dev Deploys and returns the address of a clone that mimics the behaviour of `implementation`.\\n     *\\n     * This function uses the create opcode, which should never revert.\\n     */\\n    function clone(address implementation) internal returns (address instance) {\\n        assembly {\\n            let ptr := mload(0x40)\\n            mstore(ptr, 0x3d602d80600a3d3981f3363d3d373d3d3d363d73000000000000000000000000)\\n            mstore(add(ptr, 0x14), shl(0x60, implementation))\\n            mstore(add(ptr, 0x28), 0x5af43d82803e903d91602b57fd5bf30000000000000000000000000000000000)\\n            instance := create(0, ptr, 0x37)\\n        }\\n        require(instance != address(0), \\\"ERC1167: create failed\\\");\\n    }\\n\\n    /**\\n     * @dev Deploys and returns the address of a clone that mimics the behaviour of `implementation`.\\n     *\\n     * This function uses the create2 opcode and a `salt` to deterministically deploy\\n     * the clone. Using the same `implementation` and `salt` multiple time will revert, since\\n     * the clones cannot be deployed twice at the same address.\\n     */\\n    function cloneDeterministic(address implementation, bytes32 salt) internal returns (address instance) {\\n        assembly {\\n            let ptr := mload(0x40)\\n            mstore(ptr, 0x3d602d80600a3d3981f3363d3d373d3d3d363d73000000000000000000000000)\\n            mstore(add(ptr, 0x14), shl(0x60, implementation))\\n            mstore(add(ptr, 0x28), 0x5af43d82803e903d91602b57fd5bf30000000000000000000000000000000000)\\n            instance := create2(0, ptr, 0x37, salt)\\n        }\\n        require(instance != address(0), \\\"ERC1167: create2 failed\\\");\\n    }\\n\\n    /**\\n     * @dev Computes the address of a clone deployed using {Clones-cloneDeterministic}.\\n     */\\n    function predictDeterministicAddress(\\n        address implementation,\\n        bytes32 salt,\\n        address deployer\\n    ) internal pure returns (address predicted) {\\n        assembly {\\n            let ptr := mload(0x40)\\n            mstore(ptr, 0x3d602d80600a3d3981f3363d3d373d3d3d363d73000000000000000000000000)\\n            mstore(add(ptr, 0x14), shl(0x60, implementation))\\n            mstore(add(ptr, 0x28), 0x5af43d82803e903d91602b57fd5bf3ff00000000000000000000000000000000)\\n            mstore(add(ptr, 0x38), shl(0x60, deployer))\\n            mstore(add(ptr, 0x4c), salt)\\n            mstore(add(ptr, 0x6c), keccak256(ptr, 0x37))\\n            predicted := keccak256(add(ptr, 0x37), 0x55)\\n        }\\n    }\\n\\n    /**\\n     * @dev Computes the address of a clone deployed using {Clones-cloneDeterministic}.\\n     */\\n    function predictDeterministicAddress(address implementation, bytes32 salt)\\n        internal\\n        view\\n        returns (address predicted)\\n    {\\n        return predictDeterministicAddress(implementation, salt, address(this));\\n    }\\n}\\n\",\"keccak256\":\"0x1cc0efb01cbf008b768fd7b334786a6e358809198bb7e67f1c530af4957c6a21\",\"license\":\"MIT\"},\"contracts/libraries/BoringBatchable.sol\":{\"content\":\"// SPDX-License-Identifier: MIT\\npragma solidity ^0.8.0;\\npragma experimental ABIEncoderV2;\\n\\n// solhint-disable avoid-low-level-calls\\n// solhint-disable no-inline-assembly\\n\\n// WARNING!!!\\n// Combining BoringBatchable with msg.value can cause double spending issues\\n// https://www.paradigm.xyz/2021/08/two-rights-might-make-a-wrong/\\n\\ncontract BoringBatchable {\\n  error BatchError(bytes innerError);\\n\\n  /// @dev Helper function to extract a useful revert message from a failed call.\\n  /// If the returned data is malformed or not correctly abi encoded then this call can fail itself.\\n  function _getRevertMsg(bytes memory _returnData) internal pure {\\n    // If the _res length is less than 68, then\\n    // the transaction failed with custom error or silently (without a revert message)\\n    if (_returnData.length < 68) revert BatchError(_returnData);\\n\\n    assembly {\\n      // Slice the sighash.\\n      _returnData := add(_returnData, 0x04)\\n    }\\n    revert(abi.decode(_returnData, (string))); // All that remains is the revert string\\n  }\\n\\n  /// @notice Allows batched call to self (this contract).\\n  /// @param calls An array of inputs for each call.\\n  /// @param revertOnFail If True then reverts after a failed call and stops doing further calls.\\n  // F1: External is ok here because this is the batch function, adding it to a batch makes no sense\\n  // F2: Calls in the batch may be payable, delegatecall operates in the same context, so each call in the batch has access to msg.value\\n  // C3: The length of the loop is fully under user control, so can't be exploited\\n  // C7: Delegatecall is only used on the same contract, so it's safe\\n  function batch(bytes[] calldata calls, bool revertOnFail) external payable {\\n    for (uint256 i = 0; i < calls.length; i++) {\\n      (bool success, bytes memory result) = address(this).delegatecall(calls[i]);\\n      if (!success && revertOnFail) {\\n        _getRevertMsg(result);\\n      }\\n    }\\n  }\\n}\\n\",\"keccak256\":\"0x0fcda65fcaa2d09c370253706ae03dc3d510ed6e0232c28eec7132b0c538604f\",\"license\":\"MIT\"},\"contracts/libraries/Errors.sol\":{\"content\":\"// SPDX-License-Identifier: Unlicense\\npragma solidity 0.8.10;\\n\\n/**\\n    @title Errors library\\n    @author MIMO\\n    @notice Defines the error messages emtted by the different contracts of the MIMO protocol\\n */\\n\\nlibrary Errors {\\n  error CANNOT_SET_TO_ADDRESS_ZERO();\\n  error INITIATOR_NOT_AUTHORIZED(address actual, address expected);\\n  error CALLER_NOT_LENDING_POOL(address actual, address expected);\\n  error CANNOT_REPAY_FLASHLOAN();\\n  error INVALID_AGGREGATOR();\\n  error AGGREGATOR_CALL_FAILED();\\n  error EXECUTION_NOT_AUTHORIZED(address owner, address caller, address target, bytes4 selector);\\n  error EXECUTION_REVERTED();\\n  error NOT_OWNER(address owner, address caller);\\n  error OWNER_CHANGED(address originalOwner, address newOwner);\\n  error TARGET_INVALID(address target);\\n  error CALLER_NOT_VAULT_OWNER(address callerProxy, address vaultOwner);\\n  error CALLER_NOT_PROTOCOL_MANAGER();\\n  error MANAGER_NOT_LISTED();\\n  error VAULT_NOT_UNDER_MANAGEMENT();\\n  error CALLER_NOT_SELECTED_MANAGER();\\n  error PROXY_ALREADY_EXISTS(address owner);\\n  error MAX_OPERATIONS_REACHED();\\n  error MINT_AMOUNT_GREATER_THAN_VAULT_DEBT();\\n  error VAULT_VALUE_CHANGE_TOO_HIGH();\\n  error FINAL_VAULT_RATIO_TOO_LOW(uint256 minRatio, uint256 actualRatio);\\n  error VAULT_NOT_AUTOMATED();\\n  error VAULT_TRIGGER_RATIO_NOT_REACHED(uint256 actual, uint256 expected);\\n  error TARGETS_LENGTH_DIFFERENT_THAN_DATA_LENGTH(uint256 targetsLength, uint256 dataLength);\\n  error LOW_LEVEL_CALL_FAILED();\\n  error REBALANCE_AMOUNT_CANNOT_BE_ZERO();\\n  error VARIABLE_FEE_TOO_HIGH(uint256 maxVarFee, uint256 actualVarFee);\\n  error VAULT_NOT_INITIALIZED(uint256 vaultId);\\n  error ALREADY_OWNER(address owner, address ownedProxy);\\n  error CALLER_NOT_PENDING_OWNER(address caller, address pendingOwner);\\n  error UNAUTHORIZED_CALLER();\\n  error PAUSED();\\n}\\n\",\"keccak256\":\"0xc1749264f50f0c27653f862ccb7a87e1930603f67cc0bbb29ae533ab323ea155\",\"license\":\"Unlicense\"},\"contracts/proxy/MIMOProxy.sol\":{\"content\":\"// SPDX-License-Identifier: Unlicense\\npragma solidity 0.8.10;\\n\\nimport \\\"../libraries/BoringBatchable.sol\\\";\\nimport \\\"./interfaces/IMIMOProxy.sol\\\";\\nimport \\\"./interfaces/IMIMOProxyFactory.sol\\\";\\nimport { Errors } from \\\"../libraries/Errors.sol\\\";\\n\\n/// @title MIMOProxy\\ncontract MIMOProxy is IMIMOProxy, BoringBatchable {\\n  /// PUBLIC STORAGE ///\\n  IMIMOProxyFactory public immutable override proxyFactory;\\n\\n  /// CONSTRUCTOR ///\\n  constructor(address _proxyFactory) {\\n    proxyFactory = IMIMOProxyFactory(_proxyFactory);\\n  }\\n\\n  /// FALLBACK FUNCTION ///\\n\\n  /// @dev Called when Ether is sent and the call data is empty.\\n  receive() external payable {}\\n\\n  /// PUBLIC NON-CONSTANT FUNCTIONS ///\\n\\n  /**\\n    @notice Delegate calls to the target contract by forwarding the call data. Returns the data it gets back,\\n    including when the contract call reverts with a reason or custom error\\n    @dev Requirements:\\n      - The caller must be either an owner or an envoy\\n      - `target` must be a deployed contract\\n      - The owner cannot be changed during the DELEGATECALL\\n    @param target The address of the target contract\\n    @param data Function selector plus ABI encoded data\\n    @return response The response received from the target contract\\n   */\\n  function execute(address target, bytes calldata data) public payable override returns (bytes memory response) {\\n    IMIMOProxyFactory.ProxyState memory state = proxyFactory.getProxyState(address(this));\\n\\n    // Check that the caller is either the owner or an envoy.\\n    if (state.owner != msg.sender) {\\n      bytes4 selector = bytes4(data[:4]);\\n      if (!state.proxyGuard.getPermission(msg.sender, target, selector)) {\\n        revert Errors.EXECUTION_NOT_AUTHORIZED(state.owner, msg.sender, target, selector);\\n      }\\n    }\\n\\n    // Check that the target is a valid contract.\\n    if (target.code.length == 0) {\\n      revert Errors.TARGET_INVALID(target);\\n    }\\n\\n    // Reserve some gas to ensure that the function has enough to finish the execution.\\n    uint256 stipend = gasleft() - state.minGas;\\n\\n    // Delegate call to the target contract.\\n    bool success;\\n    (success, response) = target.delegatecall{ gas: stipend }(data);\\n\\n    // Log the execution.\\n    emit Execute(target, data, response);\\n\\n    // Check if the call was successful or not.\\n    if (!success) {\\n      if (response.length > 0) {\\n        assembly {\\n          let returndata_size := mload(response)\\n          revert(add(32, response), returndata_size)\\n        }\\n      } else {\\n        revert Errors.EXECUTION_REVERTED();\\n      }\\n    }\\n  }\\n}\\n\",\"keccak256\":\"0xac97e458eac429782728f96cc66c7a747443ee2a861d4e2b8475f87455d6043a\",\"license\":\"Unlicense\"},\"contracts/proxy/MIMOProxyFactory.sol\":{\"content\":\"// SPDX-License-Identifier: Unlicense\\npragma solidity >=0.8.4;\\n\\nimport \\\"@openzeppelin/contracts/proxy/Clones.sol\\\";\\n\\nimport \\\"./interfaces/IMIMOProxyFactory.sol\\\";\\nimport \\\"./MIMOProxy.sol\\\";\\nimport { Errors } from \\\"../libraries/Errors.sol\\\";\\n\\n/// @title MIMOProxyFactory\\ncontract MIMOProxyFactory is IMIMOProxyFactory {\\n  using Clones for address;\\n\\n  address public immutable mimoProxyGuardBase;\\n\\n  /// @inheritdoc IMIMOProxyFactory\\n  uint256 public constant override VERSION = 1;\\n\\n  /// @notice proxy => proxy state\\n  mapping(address => ProxyState) private _proxyStates;\\n\\n  /// @notice owner => proxy\\n  mapping(address => IMIMOProxy) private _currentProxies;\\n\\n  /// @notice proxy => pending owner\\n  mapping(address => address) private _pendingOwners;\\n\\n  modifier onlyOwner(address proxy) {\\n    if (address(_currentProxies[msg.sender]) != proxy) {\\n      revert Errors.NOT_OWNER(_proxyStates[proxy].owner, msg.sender);\\n    }\\n    _;\\n  }\\n\\n  constructor(address _mimoProxyGuardBase) {\\n    if (_mimoProxyGuardBase == address(0)) {\\n      revert Errors.CANNOT_SET_TO_ADDRESS_ZERO();\\n    }\\n    mimoProxyGuardBase = _mimoProxyGuardBase;\\n  }\\n\\n  /**\\n    @notice Deploys a new MIMOProxy and MIMOProxyGuard\\n    @dev Sets \\\"msg.sender\\\" as the owner of the MIMOProxy.\\n\\n   */\\n  function deploy() external override {\\n    address currentProxy = address(_currentProxies[msg.sender]);\\n    if (address(currentProxy) != address(0)) {\\n      revert Errors.ALREADY_OWNER(msg.sender, currentProxy);\\n    }\\n    MIMOProxy proxy = new MIMOProxy(address(this));\\n    IMIMOProxyGuard proxyGuard = IMIMOProxyGuard(mimoProxyGuardBase.clone());\\n\\n    proxyGuard.initialize(address(this), address(proxy));\\n\\n    ProxyState memory proxyState = ProxyState({ owner: msg.sender, proxyGuard: proxyGuard, minGas: 5000 });\\n\\n    _currentProxies[msg.sender] = IMIMOProxy(proxy);\\n    _proxyStates[address(proxy)] = proxyState;\\n\\n    emit ProxyDeployed(msg.sender, address(proxy), proxyState);\\n  }\\n\\n  /**\\n    @notice Transfers ownership to `newOwner`. Either directly or claimable by the new pending owner.\\n    Can only be invoked by the current MIMOProxy `owner`\\n    @param proxy Address ot the MIMOProxy to transfer\\n    @param newOwner Address of the new owner\\n   */\\n  function transferOwnership(address proxy, address newOwner) external override onlyOwner(proxy) {\\n    // Checks\\n    if (newOwner == address(0)) {\\n      revert Errors.CANNOT_SET_TO_ADDRESS_ZERO();\\n    }\\n    if (address(_currentProxies[newOwner]) != address(0)) {\\n      revert Errors.ALREADY_OWNER(newOwner, address(_currentProxies[newOwner]));\\n    }\\n    // Effects\\n    _pendingOwners[proxy] = newOwner;\\n    emit OwnershipTransferred(proxy, msg.sender, newOwner);\\n  }\\n\\n  /**\\n    @notice Needs to be called by `pendingOwner` to claim ownership\\n    @param proxy Address of the MIMOProxy to claim\\n    @param clear Clear existing proxy permissions if true and maintain them if false\\n   */\\n  function claimOwnership(address proxy, bool clear) external override {\\n    address pendingOwner = _pendingOwners[proxy];\\n\\n    // Checks\\n    if (msg.sender != pendingOwner) {\\n      revert Errors.CALLER_NOT_PENDING_OWNER(msg.sender, pendingOwner);\\n    }\\n\\n    if (address(_currentProxies[pendingOwner]) != address(0)) {\\n      revert Errors.ALREADY_OWNER(pendingOwner, address(_currentProxies[pendingOwner]));\\n    }\\n\\n    // Effects\\n    address oldOwner = _proxyStates[proxy].owner;\\n    delete _currentProxies[oldOwner];\\n    _currentProxies[msg.sender] = IMIMOProxy(proxy);\\n    _proxyStates[proxy].owner = msg.sender;\\n    delete _pendingOwners[proxy];\\n    emit OwnershipClaimed(proxy, msg.sender);\\n\\n    if (clear) {\\n      _clearPermissions(proxy);\\n    }\\n  }\\n\\n  /**\\n    @notice Clear all permissions from the MIMOProxy by deploying a new MIMOProxyGuard\\n    Can only be called by the MIMOProxy `owner`\\n    @param proxy Addess of the MIMOProxy to clear\\n   */\\n  function clearPermissions(address proxy) external override onlyOwner(proxy) {\\n    _clearPermissions(proxy);\\n  }\\n\\n  /**\\n    @param proxy Address of the MIMOProxy\\n    @param minGas Gas to reserve for running the remainder of the \\\"execute\\\" function after the DELEGATECALL in the \\n    MIMOProxy. Prevents the proxy from becoming unusable if EVM opcode gas costs change in the future.\\n   */\\n  function setMinGas(address proxy, uint256 minGas) external override onlyOwner(proxy) {\\n    _proxyStates[proxy].minGas = minGas;\\n    emit MinGasSet(proxy, minGas);\\n  }\\n\\n  /**\\n    @param proxy Address of the MIMOProxy to check\\n    @return result equals true if proxy has been deployed and false if not\\n   */\\n  function isProxy(address proxy) external view override returns (bool result) {\\n    result = _proxyStates[proxy].owner != address(0);\\n  }\\n\\n  /**\\n    @notice Returns a MIMOProxy state\\n    @dev MIMOProxy state management is outsourced to this contract to prevent storage collisions\\n    @param proxy Address of the MIMOProxy\\n    @return proxyState as a ProxyState struct containing a MIMOProxy state variables\\n   */\\n  function getProxyState(address proxy) external view override returns (ProxyState memory proxyState) {\\n    proxyState = _proxyStates[proxy];\\n  }\\n\\n  /**\\n    @notice Gets the current MIMOProxy of the given owner.\\n    @param owner The address of the owner of the current MIMOProxy.\\n   */\\n  function getCurrentProxy(address owner) external view override returns (IMIMOProxy proxy) {\\n    proxy = _currentProxies[owner];\\n  }\\n\\n  /**\\n    @param proxy Address of the MIMOProxy\\n    @return pendingOwner that has yet to claim his ownership\\n   */\\n  function getPendingOwner(address proxy) external view override returns (address pendingOwner) {\\n    pendingOwner = _pendingOwners[proxy];\\n  }\\n\\n  function _clearPermissions(address proxy) internal {\\n    IMIMOProxyGuard proxyGuard = IMIMOProxyGuard(mimoProxyGuardBase.clone());\\n    proxyGuard.initialize(address(this), proxy);\\n    _proxyStates[proxy].proxyGuard = proxyGuard;\\n\\n    emit PermissionsCleared(proxy, address(proxyGuard));\\n  }\\n}\\n\",\"keccak256\":\"0x681c1cdecea93495a022557162e6b3557adce03d3edc17242ce09a9a5b62ae43\",\"license\":\"Unlicense\"},\"contracts/proxy/interfaces/IMIMOProxy.sol\":{\"content\":\"// SPDX-License-Identifier: Unlicense\\npragma solidity 0.8.10;\\n\\nimport \\\"./IMIMOProxyFactory.sol\\\";\\n\\n/// @title IMIMOProxy\\n/// @notice Proxy contract to compose transactions on owner's behalf.\\ninterface IMIMOProxy {\\n  event Execute(address indexed target, bytes data, bytes response);\\n\\n  function execute(address target, bytes calldata data) external payable returns (bytes memory response);\\n\\n  function proxyFactory() external returns (IMIMOProxyFactory);\\n}\\n\",\"keccak256\":\"0x3b1ba487a3e28063c13b5bf5dd78d738f232f7a801a0d164e499843772187532\",\"license\":\"Unlicense\"},\"contracts/proxy/interfaces/IMIMOProxyFactory.sol\":{\"content\":\"// SPDX-License-Identifier: Unlicense\\npragma solidity ^0.8.4;\\n\\nimport \\\"./IMIMOProxy.sol\\\";\\nimport \\\"./IMIMOProxyGuard.sol\\\";\\n\\n/// @title IMIMOProxyFactory\\n/// @notice Deploys new proxies with CREATE2.\\ninterface IMIMOProxyFactory {\\n  struct ProxyState {\\n    address owner;\\n    IMIMOProxyGuard proxyGuard;\\n    uint256 minGas;\\n  }\\n\\n  event ProxyDeployed(address indexed owner, address indexed proxy, ProxyState proxyState);\\n\\n  event PermissionsCleared(address indexed proxy, address newProxyGuard);\\n\\n  event OwnershipTransferred(address indexed proxy, address indexed previousOwner, address indexed newOwner);\\n\\n  event OwnershipClaimed(address indexed proxy, address indexed newOwner);\\n\\n  event MinGasSet(address indexed proxy, uint256 minGas);\\n\\n  function deploy() external;\\n\\n  function transferOwnership(address proxy, address newOwner) external;\\n\\n  function claimOwnership(address proxy, bool clear) external;\\n\\n  function clearPermissions(address proxy) external;\\n\\n  function setMinGas(address proxy, uint256 minGas) external;\\n\\n  function mimoProxyGuardBase() external returns (address);\\n\\n  function isProxy(address proxy) external returns (bool result);\\n\\n  function VERSION() external view returns (uint256);\\n\\n  function getProxyState(address proxy) external view returns (ProxyState memory proxyState);\\n\\n  function getCurrentProxy(address owner) external view returns (IMIMOProxy proxy);\\n\\n  function getPendingOwner(address proxy) external view returns (address pendingOwner);\\n}\\n\",\"keccak256\":\"0xd679829ba199a63195d7ef3db753643ba620c7b2d2b8e8293069a8dbf8f2a373\",\"license\":\"Unlicense\"},\"contracts/proxy/interfaces/IMIMOProxyGuard.sol\":{\"content\":\"// SPDX-License-Identifier: Unlicense\\npragma solidity 0.8.10;\\n\\nimport \\\"./IMIMOProxyFactory.sol\\\";\\n\\ninterface IMIMOProxyGuard {\\n  event PermissionSet(address indexed envoy, address indexed target, bytes4 selector, bool permission);\\n\\n  function initialize(address proxyFactory, address proxy) external;\\n\\n  function setPermission(\\n    address envoy,\\n    address target,\\n    bytes4 selector,\\n    bool permission\\n  ) external;\\n\\n  function getPermission(\\n    address envoy,\\n    address target,\\n    bytes4 selector\\n  ) external view returns (bool);\\n\\n  function getProxy() external view returns (address proxy);\\n\\n  function getProxyFactory() external view returns (IMIMOProxyFactory proxyFactory);\\n}\\n\",\"keccak256\":\"0xceebcf2978b34653aaa522ee14ab436aee7e795bdd9c071bd202fb7b8b6a74fa\",\"license\":\"Unlicense\"}},\"version\":1}",
+  "bytecode": "0x60a060405234801561001057600080fd5b5060405161155d38038061155d83398101604081905261002f91610067565b6001600160a01b03811661005657604051636a8403ad60e01b815260040160405180910390fd5b6001600160a01b0316608052610097565b60006020828403121561007957600080fd5b81516001600160a01b038116811461009057600080fd5b9392505050565b60805161149d6100c06000396000818161010b0152818161050201526108c7015261149d6000f3fe608060405234801561001057600080fd5b50600436106100a95760003560e01c8063775c300c11610071578063775c300c14610184578063995631741461018c5780639da947d8146101b8578063e7a80c8f146101cb578063ea3227ee146101de578063ffa1ad741461027657600080fd5b80631e28d19d146100ae57806329710388146100c35780634de1c5081461010657806366f6a5ed146101455780636d43542114610171575b600080fd5b6100c16100bc3660046109e3565b61028c565b005b6100f16100d1366004610a0d565b6001600160a01b0390811660009081526020819052604090205416151590565b60405190151581526020015b60405180910390f35b61012d7f000000000000000000000000000000000000000000000000000000000000000081565b6040516001600160a01b0390911681526020016100fd565b61012d610153366004610a0d565b6001600160a01b039081166000908152600260205260409020541690565b6100c161017f366004610a2f565b610349565b6100c1610481565b61012d61019a366004610a0d565b6001600160a01b039081166000908152600160205260409020541690565b6100c16101c6366004610a0d565b61067e565b6100c16101d9366004610a62565b6106ea565b6102466101ec366004610a0d565b6040805160608082018352600080835260208084018290529284018190526001600160a01b039485168152808352839020835191820184528054851682526001810154909416918101919091526002909201549082015290565b6040805182516001600160a01b0390811682526020808501519091169082015291810151908201526060016100fd565b61027e600181565b6040519081526020016100fd565b3360009081526001602052604090205482906001600160a01b038083169116146102f4576001600160a01b03808216600090815260208190526040908190205490516341fa8c8960e11b81526102eb9291909116903390600401610a9e565b60405180910390fd5b6001600160a01b0383166000818152602081815260409182902060020185905590518481527f72c999c3378702af9a377a5f871b439caf07d3cd10edbcb807dd42cafe295571910160405180910390a2505050565b3360009081526001602052604090205482906001600160a01b038083169116146103a8576001600160a01b03808216600090815260208190526040908190205490516341fa8c8960e11b81526102eb9291909116903390600401610a9e565b6001600160a01b0382166103cf57604051636a8403ad60e01b815260040160405180910390fd5b6001600160a01b038281166000908152600160205260409020541615610427576001600160a01b0380831660009081526001602052604090819020549051631dfd0c2f60e11b81526102eb9285921690600401610a9e565b6001600160a01b0383811660008181526002602052604080822080546001600160a01b0319169487169485179055513392917fc8894f26f396ce8c004245c8b7cd1b92103a6e4302fcbab883987149ac01b7ec91a4505050565b336000908152600160205260409020546001600160a01b031680156104bd573381604051631dfd0c2f60e11b81526004016102eb929190610a9e565b6000306040516104cc906109bf565b6001600160a01b039091168152602001604051809103906000f0801580156104f8573d6000803e3d6000fd5b509050600061052f7f00000000000000000000000000000000000000000000000000000000000000006001600160a01b0316610823565b60405163485cc95560e01b81529091506001600160a01b0382169063485cc955906105609030908690600401610a9e565b600060405180830381600087803b15801561057a57600080fd5b505af115801561058e573d6000803e3d6000fd5b505060408051606081018252338082526001600160a01b0386811660208085019182526113888587019081526000858152600180845288822080548e88166001600160a01b031991821681179092558184529483905291899020885181549088169086161781559451908501805491909616931692909217909355915160029091015592519194509192507f7b1a53268fe43c7ed31990d07cb415302e0b6a4c3ccce74215ff27d6292fa4659061067090859081516001600160a01b039081168252602080840151909116908201526040918201519181019190915260600190565b60405180910390a350505050565b3360009081526001602052604090205481906001600160a01b038083169116146106dd576001600160a01b03808216600090815260208190526040908190205490516341fa8c8960e11b81526102eb9291909116903390600401610a9e565b6106e6826108c0565b5050565b6001600160a01b0380831660009081526002602052604090205416338114610729573381604051633854d1cd60e11b81526004016102eb929190610a9e565b6001600160a01b038181166000908152600160205260409020541615610781576001600160a01b0380821660009081526001602052604090819020549051631dfd0c2f60e11b81526102eb9284921690600401610a9e565b6001600160a01b0380841660008181526020818152604080832080549095168084526001835281842080546001600160a01b03199081169091553380865283862080548316881790558686528754821681179097556002909352818420805490931690925551909392917f935c51778db70bb63d01ba9b319c9b8f13d608e43d550a91d8896bd1368857df91a3821561081d5761081d846108c0565b50505050565b6000604051733d602d80600a3d3981f3363d3d373d3d3d363d7360601b81528260601b60148201526e5af43d82803e903d91602b57fd5bf360881b60288201526037816000f09150506001600160a01b0381166108bb5760405162461bcd60e51b8152602060048201526016602482015275115490cc4c4d8dce8818dc99585d194819985a5b195960521b60448201526064016102eb565b919050565b60006108f47f00000000000000000000000000000000000000000000000000000000000000006001600160a01b0316610823565b60405163485cc95560e01b81529091506001600160a01b0382169063485cc955906109259030908690600401610a9e565b600060405180830381600087803b15801561093f57600080fd5b505af1158015610953573d6000803e3d6000fd5b505050506001600160a01b038281166000818152602081815260409182902060010180546001600160a01b0319169486169485179055905192835290917f4e6abd2f14bcb0a8ad876a3e1b4c2f8c2cc0aec352d062ceef01083577b5f0fc910160405180910390a25050565b6109af80610ab983390190565b80356001600160a01b03811681146108bb57600080fd5b600080604083850312156109f657600080fd5b6109ff836109cc565b946020939093013593505050565b600060208284031215610a1f57600080fd5b610a28826109cc565b9392505050565b60008060408385031215610a4257600080fd5b610a4b836109cc565b9150610a59602084016109cc565b90509250929050565b60008060408385031215610a7557600080fd5b610a7e836109cc565b915060208301358015158114610a9357600080fd5b809150509250929050565b6001600160a01b039283168152911660208201526040019056fe60a060405234801561001057600080fd5b506040516109af3803806109af83398101604081905261002f91610040565b6001600160a01b0316608052610070565b60006020828403121561005257600080fd5b81516001600160a01b038116811461006957600080fd5b9392505050565b60805161091f61009060003960008181607f015260f1015261091f6000f3fe6080604052600436106100385760003560e01c80631cff79cd14610044578063c10f1a751461006d578063d2423b51146100b957600080fd5b3661003f57005b600080fd5b6100576100523660046104b5565b6100ce565b6040516100649190610592565b60405180910390f35b34801561007957600080fd5b506100a17f000000000000000000000000000000000000000000000000000000000000000081565b6040516001600160a01b039091168152602001610064565b6100cc6100c73660046105ba565b61038b565b005b60405163751913f760e11b81523060048201526060906000906001600160a01b037f0000000000000000000000000000000000000000000000000000000000000000169063ea3227ee90602401606060405180830381865afa158015610138573d6000803e3d6000fd5b505050506040513d601f19601f8201168201806040525081019061015c9190610656565b80519091506001600160a01b0316331461026057600061017f60048286886106c1565b610188916106eb565b60208301516040516336a3620b60e21b81523360048201526001600160a01b0389811660248301526001600160e01b03198416604483015292935091169063da8d882c90606401602060405180830381865afa1580156101ec573d6000803e3d6000fd5b505050506040513d601f19601f82011682018060405250810190610210919061071b565b61025e5781516040516317dd0e3160e21b81526001600160a01b03918216600482015233602482015290871660448201526001600160e01b0319821660648201526084015b60405180910390fd5b505b6001600160a01b0385163b6102935760405163393100d760e11b81526001600160a01b0386166004820152602401610255565b600081604001515a6102a5919061074e565b90506000866001600160a01b03168287876040516102c4929190610765565b6000604051808303818686f4925050503d8060008114610300576040519150601f19603f3d011682016040523d82523d6000602084013e610305565b606091505b508095508192505050866001600160a01b03167fb24ebe141c5f2a744b103bea65fce6c40e0dc65d7341d092c09b160f4044799087878760405161034b93929190610775565b60405180910390a280610381578351156103685783518085602001fd5b6040516386bda99560e01b815260040160405180910390fd5b5050509392505050565b60005b8281101561043f57600080308686858181106103ac576103ac6107bd565b90506020028101906103be91906107d3565b6040516103cc929190610765565b600060405180830381855af49150503d8060008114610407576040519150601f19603f3d011682016040523d82523d6000602084013e61040c565b606091505b50915091508115801561041c5750835b1561042a5761042a81610445565b5050808061043790610821565b91505061038e565b50505050565b60448151101561046a578060405163d935448560e01b81526004016102559190610592565b60048101905080806020019051810190610484919061083c565b60405162461bcd60e51b81526004016102559190610592565b6001600160a01b03811681146104b257600080fd5b50565b6000806000604084860312156104ca57600080fd5b83356104d58161049d565b9250602084013567ffffffffffffffff808211156104f257600080fd5b818601915086601f83011261050657600080fd5b81358181111561051557600080fd5b87602082850101111561052757600080fd5b6020830194508093505050509250925092565b60005b8381101561055557818101518382015260200161053d565b8381111561043f5750506000910152565b6000815180845261057e81602086016020860161053a565b601f01601f19169290920160200192915050565b6020815260006105a56020830184610566565b9392505050565b80151581146104b257600080fd5b6000806000604084860312156105cf57600080fd5b833567ffffffffffffffff808211156105e757600080fd5b818601915086601f8301126105fb57600080fd5b81358181111561060a57600080fd5b8760208260051b850101111561061f57600080fd5b60209283019550935050840135610635816105ac565b809150509250925092565b634e487b7160e01b600052604160045260246000fd5b60006060828403121561066857600080fd5b6040516060810181811067ffffffffffffffff8211171561068b5761068b610640565b60405282516106998161049d565b815260208301516106a98161049d565b60208201526040928301519281019290925250919050565b600080858511156106d157600080fd5b838611156106de57600080fd5b5050820193919092039150565b6001600160e01b031981358181169160048510156107135780818660040360031b1b83161692505b505092915050565b60006020828403121561072d57600080fd5b81516105a5816105ac565b634e487b7160e01b600052601160045260246000fd5b60008282101561076057610760610738565b500390565b8183823760009101908152919050565b60408152826040820152828460608301376000606084830101526000601f19601f850116820160608382030160208401526107b36060820185610566565b9695505050505050565b634e487b7160e01b600052603260045260246000fd5b6000808335601e198436030181126107ea57600080fd5b83018035915067ffffffffffffffff82111561080557600080fd5b60200191503681900382131561081a57600080fd5b9250929050565b600060001982141561083557610835610738565b5060010190565b60006020828403121561084e57600080fd5b815167ffffffffffffffff8082111561086657600080fd5b818401915084601f83011261087a57600080fd5b81518181111561088c5761088c610640565b604051601f8201601f19908116603f011681019083821181831017156108b4576108b4610640565b816040528281528760208487010111156108cd57600080fd5b6108de83602083016020880161053a565b97965050505050505056fea264697066735822122082b6525abab5614ccf49a74197d0f70d6561fefa49fa2f0d16b0429f657f70d564736f6c634300080a0033a26469706673582212200821d37b615badea484290845f2d9fc16dbf896eb0af1dbb70eede381254d95564736f6c634300080a0033",
+  "deployedBytecode": "0x608060405234801561001057600080fd5b50600436106100a95760003560e01c8063775c300c11610071578063775c300c14610184578063995631741461018c5780639da947d8146101b8578063e7a80c8f146101cb578063ea3227ee146101de578063ffa1ad741461027657600080fd5b80631e28d19d146100ae57806329710388146100c35780634de1c5081461010657806366f6a5ed146101455780636d43542114610171575b600080fd5b6100c16100bc3660046109e3565b61028c565b005b6100f16100d1366004610a0d565b6001600160a01b0390811660009081526020819052604090205416151590565b60405190151581526020015b60405180910390f35b61012d7f000000000000000000000000000000000000000000000000000000000000000081565b6040516001600160a01b0390911681526020016100fd565b61012d610153366004610a0d565b6001600160a01b039081166000908152600260205260409020541690565b6100c161017f366004610a2f565b610349565b6100c1610481565b61012d61019a366004610a0d565b6001600160a01b039081166000908152600160205260409020541690565b6100c16101c6366004610a0d565b61067e565b6100c16101d9366004610a62565b6106ea565b6102466101ec366004610a0d565b6040805160608082018352600080835260208084018290529284018190526001600160a01b039485168152808352839020835191820184528054851682526001810154909416918101919091526002909201549082015290565b6040805182516001600160a01b0390811682526020808501519091169082015291810151908201526060016100fd565b61027e600181565b6040519081526020016100fd565b3360009081526001602052604090205482906001600160a01b038083169116146102f4576001600160a01b03808216600090815260208190526040908190205490516341fa8c8960e11b81526102eb9291909116903390600401610a9e565b60405180910390fd5b6001600160a01b0383166000818152602081815260409182902060020185905590518481527f72c999c3378702af9a377a5f871b439caf07d3cd10edbcb807dd42cafe295571910160405180910390a2505050565b3360009081526001602052604090205482906001600160a01b038083169116146103a8576001600160a01b03808216600090815260208190526040908190205490516341fa8c8960e11b81526102eb9291909116903390600401610a9e565b6001600160a01b0382166103cf57604051636a8403ad60e01b815260040160405180910390fd5b6001600160a01b038281166000908152600160205260409020541615610427576001600160a01b0380831660009081526001602052604090819020549051631dfd0c2f60e11b81526102eb9285921690600401610a9e565b6001600160a01b0383811660008181526002602052604080822080546001600160a01b0319169487169485179055513392917fc8894f26f396ce8c004245c8b7cd1b92103a6e4302fcbab883987149ac01b7ec91a4505050565b336000908152600160205260409020546001600160a01b031680156104bd573381604051631dfd0c2f60e11b81526004016102eb929190610a9e565b6000306040516104cc906109bf565b6001600160a01b039091168152602001604051809103906000f0801580156104f8573d6000803e3d6000fd5b509050600061052f7f00000000000000000000000000000000000000000000000000000000000000006001600160a01b0316610823565b60405163485cc95560e01b81529091506001600160a01b0382169063485cc955906105609030908690600401610a9e565b600060405180830381600087803b15801561057a57600080fd5b505af115801561058e573d6000803e3d6000fd5b505060408051606081018252338082526001600160a01b0386811660208085019182526113888587019081526000858152600180845288822080548e88166001600160a01b031991821681179092558184529483905291899020885181549088169086161781559451908501805491909616931692909217909355915160029091015592519194509192507f7b1a53268fe43c7ed31990d07cb415302e0b6a4c3ccce74215ff27d6292fa4659061067090859081516001600160a01b039081168252602080840151909116908201526040918201519181019190915260600190565b60405180910390a350505050565b3360009081526001602052604090205481906001600160a01b038083169116146106dd576001600160a01b03808216600090815260208190526040908190205490516341fa8c8960e11b81526102eb9291909116903390600401610a9e565b6106e6826108c0565b5050565b6001600160a01b0380831660009081526002602052604090205416338114610729573381604051633854d1cd60e11b81526004016102eb929190610a9e565b6001600160a01b038181166000908152600160205260409020541615610781576001600160a01b0380821660009081526001602052604090819020549051631dfd0c2f60e11b81526102eb9284921690600401610a9e565b6001600160a01b0380841660008181526020818152604080832080549095168084526001835281842080546001600160a01b03199081169091553380865283862080548316881790558686528754821681179097556002909352818420805490931690925551909392917f935c51778db70bb63d01ba9b319c9b8f13d608e43d550a91d8896bd1368857df91a3821561081d5761081d846108c0565b50505050565b6000604051733d602d80600a3d3981f3363d3d373d3d3d363d7360601b81528260601b60148201526e5af43d82803e903d91602b57fd5bf360881b60288201526037816000f09150506001600160a01b0381166108bb5760405162461bcd60e51b8152602060048201526016602482015275115490cc4c4d8dce8818dc99585d194819985a5b195960521b60448201526064016102eb565b919050565b60006108f47f00000000000000000000000000000000000000000000000000000000000000006001600160a01b0316610823565b60405163485cc95560e01b81529091506001600160a01b0382169063485cc955906109259030908690600401610a9e565b600060405180830381600087803b15801561093f57600080fd5b505af1158015610953573d6000803e3d6000fd5b505050506001600160a01b038281166000818152602081815260409182902060010180546001600160a01b0319169486169485179055905192835290917f4e6abd2f14bcb0a8ad876a3e1b4c2f8c2cc0aec352d062ceef01083577b5f0fc910160405180910390a25050565b6109af80610ab983390190565b80356001600160a01b03811681146108bb57600080fd5b600080604083850312156109f657600080fd5b6109ff836109cc565b946020939093013593505050565b600060208284031215610a1f57600080fd5b610a28826109cc565b9392505050565b60008060408385031215610a4257600080fd5b610a4b836109cc565b9150610a59602084016109cc565b90509250929050565b60008060408385031215610a7557600080fd5b610a7e836109cc565b915060208301358015158114610a9357600080fd5b809150509250929050565b6001600160a01b039283168152911660208201526040019056fe60a060405234801561001057600080fd5b506040516109af3803806109af83398101604081905261002f91610040565b6001600160a01b0316608052610070565b60006020828403121561005257600080fd5b81516001600160a01b038116811461006957600080fd5b9392505050565b60805161091f61009060003960008181607f015260f1015261091f6000f3fe6080604052600436106100385760003560e01c80631cff79cd14610044578063c10f1a751461006d578063d2423b51146100b957600080fd5b3661003f57005b600080fd5b6100576100523660046104b5565b6100ce565b6040516100649190610592565b60405180910390f35b34801561007957600080fd5b506100a17f000000000000000000000000000000000000000000000000000000000000000081565b6040516001600160a01b039091168152602001610064565b6100cc6100c73660046105ba565b61038b565b005b60405163751913f760e11b81523060048201526060906000906001600160a01b037f0000000000000000000000000000000000000000000000000000000000000000169063ea3227ee90602401606060405180830381865afa158015610138573d6000803e3d6000fd5b505050506040513d601f19601f8201168201806040525081019061015c9190610656565b80519091506001600160a01b0316331461026057600061017f60048286886106c1565b610188916106eb565b60208301516040516336a3620b60e21b81523360048201526001600160a01b0389811660248301526001600160e01b03198416604483015292935091169063da8d882c90606401602060405180830381865afa1580156101ec573d6000803e3d6000fd5b505050506040513d601f19601f82011682018060405250810190610210919061071b565b61025e5781516040516317dd0e3160e21b81526001600160a01b03918216600482015233602482015290871660448201526001600160e01b0319821660648201526084015b60405180910390fd5b505b6001600160a01b0385163b6102935760405163393100d760e11b81526001600160a01b0386166004820152602401610255565b600081604001515a6102a5919061074e565b90506000866001600160a01b03168287876040516102c4929190610765565b6000604051808303818686f4925050503d8060008114610300576040519150601f19603f3d011682016040523d82523d6000602084013e610305565b606091505b508095508192505050866001600160a01b03167fb24ebe141c5f2a744b103bea65fce6c40e0dc65d7341d092c09b160f4044799087878760405161034b93929190610775565b60405180910390a280610381578351156103685783518085602001fd5b6040516386bda99560e01b815260040160405180910390fd5b5050509392505050565b60005b8281101561043f57600080308686858181106103ac576103ac6107bd565b90506020028101906103be91906107d3565b6040516103cc929190610765565b600060405180830381855af49150503d8060008114610407576040519150601f19603f3d011682016040523d82523d6000602084013e61040c565b606091505b50915091508115801561041c5750835b1561042a5761042a81610445565b5050808061043790610821565b91505061038e565b50505050565b60448151101561046a578060405163d935448560e01b81526004016102559190610592565b60048101905080806020019051810190610484919061083c565b60405162461bcd60e51b81526004016102559190610592565b6001600160a01b03811681146104b257600080fd5b50565b6000806000604084860312156104ca57600080fd5b83356104d58161049d565b9250602084013567ffffffffffffffff808211156104f257600080fd5b818601915086601f83011261050657600080fd5b81358181111561051557600080fd5b87602082850101111561052757600080fd5b6020830194508093505050509250925092565b60005b8381101561055557818101518382015260200161053d565b8381111561043f5750506000910152565b6000815180845261057e81602086016020860161053a565b601f01601f19169290920160200192915050565b6020815260006105a56020830184610566565b9392505050565b80151581146104b257600080fd5b6000806000604084860312156105cf57600080fd5b833567ffffffffffffffff808211156105e757600080fd5b818601915086601f8301126105fb57600080fd5b81358181111561060a57600080fd5b8760208260051b850101111561061f57600080fd5b60209283019550935050840135610635816105ac565b809150509250925092565b634e487b7160e01b600052604160045260246000fd5b60006060828403121561066857600080fd5b6040516060810181811067ffffffffffffffff8211171561068b5761068b610640565b60405282516106998161049d565b815260208301516106a98161049d565b60208201526040928301519281019290925250919050565b600080858511156106d157600080fd5b838611156106de57600080fd5b5050820193919092039150565b6001600160e01b031981358181169160048510156107135780818660040360031b1b83161692505b505092915050565b60006020828403121561072d57600080fd5b81516105a5816105ac565b634e487b7160e01b600052601160045260246000fd5b60008282101561076057610760610738565b500390565b8183823760009101908152919050565b60408152826040820152828460608301376000606084830101526000601f19601f850116820160608382030160208401526107b36060820185610566565b9695505050505050565b634e487b7160e01b600052603260045260246000fd5b6000808335601e198436030181126107ea57600080fd5b83018035915067ffffffffffffffff82111561080557600080fd5b60200191503681900382131561081a57600080fd5b9250929050565b600060001982141561083557610835610738565b5060010190565b60006020828403121561084e57600080fd5b815167ffffffffffffffff8082111561086657600080fd5b818401915084601f83011261087a57600080fd5b81518181111561088c5761088c610640565b604051601f8201601f19908116603f011681019083821181831017156108b4576108b4610640565b816040528281528760208487010111156108cd57600080fd5b6108de83602083016020880161053a565b97965050505050505056fea264697066735822122082b6525abab5614ccf49a74197d0f70d6561fefa49fa2f0d16b0429f657f70d564736f6c634300080a0033a26469706673582212200821d37b615badea484290845f2d9fc16dbf896eb0af1dbb70eede381254d95564736f6c634300080a0033",
+  "devdoc": {
+    "kind": "dev",
+    "methods": {
+      "claimOwnership(address,bool)": {
+        "params": {
+          "clear": "Clear existing proxy permissions if true and maintain them if false",
+          "proxy": "Address of the MIMOProxy to claim"
+        }
+      },
+      "clearPermissions(address)": {
+        "params": {
+          "proxy": "Addess of the MIMOProxy to clear"
+        }
+      },
+      "deploy()": {
+        "details": "Sets \"msg.sender\" as the owner of the MIMOProxy."
+      },
+      "getCurrentProxy(address)": {
+        "params": {
+          "owner": "The address of the owner of the current MIMOProxy."
+        }
+      },
+      "getPendingOwner(address)": {
+        "params": {
+          "proxy": "Address of the MIMOProxy"
+        },
+        "returns": {
+          "pendingOwner": "that has yet to claim his ownership"
+        }
+      },
+      "getProxyState(address)": {
+        "details": "MIMOProxy state management is outsourced to this contract to prevent storage collisions",
+        "params": {
+          "proxy": "Address of the MIMOProxy"
+        },
+        "returns": {
+          "proxyState": "as a ProxyState struct containing a MIMOProxy state variables"
+        }
+      },
+      "isProxy(address)": {
+        "params": {
+          "proxy": "Address of the MIMOProxy to check"
+        },
+        "returns": {
+          "result": "equals true if proxy has been deployed and false if not"
+        }
+      },
+      "setMinGas(address,uint256)": {
+        "params": {
+          "minGas": "Gas to reserve for running the remainder of the \"execute\" function after the DELEGATECALL in the  MIMOProxy. Prevents the proxy from becoming unusable if EVM opcode gas costs change in the future.",
+          "proxy": "Address of the MIMOProxy"
+        }
+      },
+      "transferOwnership(address,address)": {
+        "params": {
+          "newOwner": "Address of the new owner",
+          "proxy": "Address ot the MIMOProxy to transfer"
+        }
+      }
+    },
+    "title": "MIMOProxyFactory",
+    "version": 1
+  },
+  "userdoc": {
+    "kind": "user",
+    "methods": {
+      "claimOwnership(address,bool)": {
+        "notice": "Needs to be called by `pendingOwner` to claim ownership"
+      },
+      "clearPermissions(address)": {
+        "notice": "Clear all permissions from the MIMOProxy by deploying a new MIMOProxyGuard Can only be called by the MIMOProxy `owner`"
+      },
+      "deploy()": {
+        "notice": "Deploys a new MIMOProxy and MIMOProxyGuard"
+      },
+      "getCurrentProxy(address)": {
+        "notice": "Gets the current MIMOProxy of the given owner."
+      },
+      "getProxyState(address)": {
+        "notice": "Returns a MIMOProxy state"
+      },
+      "transferOwnership(address,address)": {
+        "notice": "Transfers ownership to `newOwner`. Either directly or claimable by the new pending owner. Can only be invoked by the current MIMOProxy `owner`"
+      }
+    },
+    "version": 1
+  },
+  "storageLayout": {
+    "storage": [
+      {
+        "astId": 10308,
+        "contract": "contracts/proxy/MIMOProxyFactory.sol:MIMOProxyFactory",
+        "label": "_proxyStates",
+        "offset": 0,
+        "slot": "0",
+        "type": "t_mapping(t_address,t_struct(ProxyState)11008_storage)"
+      },
+      {
+        "astId": 10314,
+        "contract": "contracts/proxy/MIMOProxyFactory.sol:MIMOProxyFactory",
+        "label": "_currentProxies",
+        "offset": 0,
+        "slot": "1",
+        "type": "t_mapping(t_address,t_contract(IMIMOProxy)10995)"
+      },
+      {
+        "astId": 10319,
+        "contract": "contracts/proxy/MIMOProxyFactory.sol:MIMOProxyFactory",
+        "label": "_pendingOwners",
+        "offset": 0,
+        "slot": "2",
+        "type": "t_mapping(t_address,t_address)"
+      }
+    ],
+    "types": {
+      "t_address": {
+        "encoding": "inplace",
+        "label": "address",
+        "numberOfBytes": "20"
+      },
+      "t_contract(IMIMOProxy)10995": {
+        "encoding": "inplace",
+        "label": "contract IMIMOProxy",
+        "numberOfBytes": "20"
+      },
+      "t_contract(IMIMOProxyGuard)11167": {
+        "encoding": "inplace",
+        "label": "contract IMIMOProxyGuard",
+        "numberOfBytes": "20"
+      },
+      "t_mapping(t_address,t_address)": {
+        "encoding": "mapping",
+        "key": "t_address",
+        "label": "mapping(address => address)",
+        "numberOfBytes": "32",
+        "value": "t_address"
+      },
+      "t_mapping(t_address,t_contract(IMIMOProxy)10995)": {
+        "encoding": "mapping",
+        "key": "t_address",
+        "label": "mapping(address => contract IMIMOProxy)",
+        "numberOfBytes": "32",
+        "value": "t_contract(IMIMOProxy)10995"
+      },
+      "t_mapping(t_address,t_struct(ProxyState)11008_storage)": {
+        "encoding": "mapping",
+        "key": "t_address",
+        "label": "mapping(address => struct IMIMOProxyFactory.ProxyState)",
+        "numberOfBytes": "32",
+        "value": "t_struct(ProxyState)11008_storage"
+      },
+      "t_struct(ProxyState)11008_storage": {
+        "encoding": "inplace",
+        "label": "struct IMIMOProxyFactory.ProxyState",
+        "members": [
+          {
+            "astId": 11002,
+            "contract": "contracts/proxy/MIMOProxyFactory.sol:MIMOProxyFactory",
+            "label": "owner",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_address"
+          },
+          {
+            "astId": 11005,
+            "contract": "contracts/proxy/MIMOProxyFactory.sol:MIMOProxyFactory",
+            "label": "proxyGuard",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_contract(IMIMOProxyGuard)11167"
+          },
+          {
+            "astId": 11007,
+            "contract": "contracts/proxy/MIMOProxyFactory.sol:MIMOProxyFactory",
+            "label": "minGas",
+            "offset": 0,
+            "slot": "2",
+            "type": "t_uint256"
+          }
+        ],
+        "numberOfBytes": "96"
+      },
+      "t_uint256": {
+        "encoding": "inplace",
+        "label": "uint256",
+        "numberOfBytes": "32"
+      }
+    }
+  }
+}

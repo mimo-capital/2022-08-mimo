@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: Unlicense
 pragma solidity 0.8.10;
 
-import "../actions/interfaces/IMIMOFlashloan.sol";
+import "../actions/interfaces/IMIMOFlashLoan.sol";
 
 contract MockLendingPool {
+  uint256 public constant FLASHLOAN_PREMIUM_TOTAL = 5;
+
   function executeOperation(
-    IMIMOFlashloan action,
+    IMIMOFlashLoan action,
     address[] calldata assets,
     uint256[] calldata amounts,
     uint256[] calldata premiums,

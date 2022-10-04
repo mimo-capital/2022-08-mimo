@@ -1,106 +1,37 @@
 import chai, { expect } from "chai";
 import { solidity } from "ethereum-waffle";
 import { defaultAbiCoder } from "ethers/lib/utils";
-import { deployments, ethers, network } from "hardhat";
-import { ADDRESSES } from "../../config/addresses";
-import { POLYGON_ENDPOINT } from "../../hardhat.config";
-import {
-  IAddressProvider,
-  IERC20,
-  IPool,
-  IPriceFeed,
-  ISTABLEX,
-  IVaultsCore,
-  IVaultsDataProvider,
-  IWETH,
-  MIMOProxy,
-  MIMOProxyRegistry,
-  MIMORebalance,
-} from "../../typechain";
-import { MIMOVaultActions } from "../../typechain/MIMOVaultActions";
+import { deployments, ethers } from "hardhat";
 import { getOneInchTxData, getParaswapPriceRoute, getParaswapTxData, getSelector, OneInchSwapParams } from "../utils";
+import { baseSetup } from "./baseFixture";
 
 chai.use(solidity);
 
 const DEPOSIT_AMOUNT = ethers.utils.parseEther("20");
 
 const setup = deployments.createFixture(async () => {
-  const [owner] = await ethers.getSigners();
-  process.env.FORK_ID = "137";
-
-  // Fork polygon mainnet
-  await network.provider.request({
-    method: "hardhat_reset",
-    params: [
-      {
-        forking: {
-          jsonRpcUrl: POLYGON_ENDPOINT,
-        },
-      },
-    ],
-  });
-
-  // Deploy Proxy contracts
-  await deployments.fixture(["Proxy", "MIMORebalance", "MIMOVaultActions"]);
-
-  // Fetch contracts
-  const chainAddresses = ADDRESSES["137"];
-  const addressProvider: IAddressProvider = await ethers.getContractAt(
-    "IAddressProvider",
-    chainAddresses.ADDRESS_PROVIDER,
-  );
-  const [vaultsCoreAddress, vaultsDataProviderAddress, priceFeedAddress, stablexAddress] = await Promise.all([
-    addressProvider.core(),
-    addressProvider.vaultsData(),
-    addressProvider.priceFeed(),
-    addressProvider.stablex(),
-  ]);
-
-  const [
+  const {
+    owner,
     vaultsCore,
     vaultsDataProvider,
     priceFeed,
     stablex,
     wmatic,
     usdc,
-    mimoProxyRegistry,
-    lendingPool,
-    vaultActions,
-    rebalance,
-  ] = (await Promise.all([
-    ethers.getContractAt("IVaultsCore", vaultsCoreAddress),
-    ethers.getContractAt("IVaultsDataProvider", vaultsDataProviderAddress),
-    ethers.getContractAt("IPriceFeed", priceFeedAddress),
-    ethers.getContractAt("ISTABLEX", stablexAddress),
-    ethers.getContractAt("IWETH", chainAddresses.WMATIC),
-    ethers.getContractAt("IERC20", chainAddresses.USDC),
-    ethers.getContract("MIMOProxyRegistry"),
-    ethers.getContractAt("IPool", chainAddresses.AAVE_POOL),
-    ethers.getContract("MIMOVaultActions"),
-    ethers.getContract("MIMORebalance"),
-  ])) as [
-    IVaultsCore,
-    IVaultsDataProvider,
-    IPriceFeed,
-    ISTABLEX,
-    IWETH,
-    IERC20,
-    MIMOProxyRegistry,
-    IPool,
-    MIMOVaultActions,
-    MIMORebalance,
-  ];
-
-  await mimoProxyRegistry.deploy();
-  const deployedMIMOProxy = await mimoProxyRegistry.getCurrentProxy(owner.address);
-  const mimoProxy: MIMOProxy = await ethers.getContractAt("MIMOProxy", deployedMIMOProxy);
+    mimoProxyGuard,
+    mimoVaultActions,
+    mimoRebalance,
+    mimoProxyActions,
+    mimoProxy,
+    premium,
+  } = await baseSetup();
 
   // Set permission on deployed MIMOProxy for MIMORebalance callback
-  await mimoProxy.setPermission(
-    rebalance.address,
-    rebalance.address,
+  await mimoProxyGuard.setPermission(
+    mimoRebalance.address,
+    mimoRebalance.address,
     getSelector(
-      rebalance.interface.functions[
+      mimoRebalance.interface.functions[
         "rebalanceOperation(address,uint256,uint256,uint256,(address,uint256,uint256),(uint256,bytes))"
       ].format(),
     ),
@@ -112,8 +43,8 @@ const setup = deployments.createFixture(async () => {
   await wmatic.approve(mimoProxy.address, DEPOSIT_AMOUNT);
 
   // Create vault to be rebalanced
-  const depositData = vaultActions.interface.encodeFunctionData("deposit", [wmatic.address, DEPOSIT_AMOUNT]);
-  await mimoProxy.execute(vaultActions.address, depositData);
+  const depositData = mimoVaultActions.interface.encodeFunctionData("deposit", [wmatic.address, DEPOSIT_AMOUNT]);
+  await mimoProxy.execute(mimoVaultActions.address, depositData);
   const vaultId = await vaultsDataProvider.vaultId(wmatic.address, mimoProxy.address);
 
   return {
@@ -122,18 +53,21 @@ const setup = deployments.createFixture(async () => {
     vaultsCore,
     vaultsDataProvider,
     wmatic,
-    rebalance,
+    mimoRebalance,
     priceFeed,
     stablex,
     usdc,
     vaultId,
-    lendingPool,
+    mimoProxyGuard,
+    mimoProxyActions,
+    premium,
   };
 });
 
-describe("--- MIMORebalance Integration Tests ---", () => {
-  it("should be able to rebalance with 1inch", async () => {
-    const { mimoProxy, rebalance, wmatic, priceFeed, usdc, vaultId, vaultsDataProvider } = await setup();
+describe("--- MIMORebalance Integration Tests ---", function () {
+  this.retries(5);
+  it("should be able to mimoRebalance with 1inch", async () => {
+    const { mimoProxy, mimoRebalance, wmatic, priceFeed, usdc, vaultId, vaultsDataProvider } = await setup();
     const wmaticPrice = await priceFeed.convertFrom(wmatic.address, DEPOSIT_AMOUNT);
     const rebalanceAmount = DEPOSIT_AMOUNT.mul(75).div(100);
     const mintAmount = wmaticPrice.mul(70).div(110);
@@ -147,11 +81,11 @@ describe("--- MIMORebalance Integration Tests ---", () => {
     };
     const { data } = await getOneInchTxData(swapParams);
     const rebalanceData = [
-      [wmatic.address, rebalance.address, rebalanceAmount],
+      [wmatic.address, mimoRebalance.address, rebalanceAmount],
       [usdc.address, vaultId, mintAmount],
       [1, data.tx.data],
     ];
-    const MIMOProxyData = rebalance.interface.encodeFunctionData("executeAction", [
+    const MIMOProxyData = mimoRebalance.interface.encodeFunctionData("executeAction", [
       defaultAbiCoder.encode(
         ["tuple(address,address,uint256)", "tuple(address,uint256,uint256)", "tuple(uint256,bytes)"],
         rebalanceData,
@@ -159,9 +93,9 @@ describe("--- MIMORebalance Integration Tests ---", () => {
     ]);
     const usdcVautIdBefore = await vaultsDataProvider.vaultId(usdc.address, mimoProxy.address);
     const wmaticCollateralBalanceBefore = await vaultsDataProvider.vaultCollateralBalance(vaultId);
-    const tx = await mimoProxy.execute(rebalance.address, MIMOProxyData);
+    const tx = await mimoProxy.execute(mimoRebalance.address, MIMOProxyData);
     const receipt = await tx.wait(1);
-    console.log("Rebalance gas used with 1inch : ", receipt.gasUsed.toString());
+    console.log("mimoRebalance gas used with 1inch : ", receipt.gasUsed.toString());
     const wmaticCollateralBalanceAfter = await vaultsDataProvider.vaultCollateralBalance(vaultId);
     const usdcVautIdAfter = await vaultsDataProvider.vaultId(usdc.address, mimoProxy.address);
     expect(usdcVautIdBefore).to.be.equal(ethers.constants.Zero);
@@ -169,8 +103,8 @@ describe("--- MIMORebalance Integration Tests ---", () => {
     expect(wmaticCollateralBalanceBefore).to.be.equal(DEPOSIT_AMOUNT);
     expect(Number(wmaticCollateralBalanceAfter)).to.be.closeTo(Number(DEPOSIT_AMOUNT.sub(rebalanceAmount)), 1e16);
   });
-  it("should be able to rebalance with paraswap", async () => {
-    const { mimoProxy, rebalance, wmatic, priceFeed, usdc, vaultId, vaultsDataProvider } = await setup();
+  it("should be able to mimoRebalance with paraswap", async () => {
+    const { mimoProxy, mimoRebalance, wmatic, priceFeed, usdc, vaultId, vaultsDataProvider } = await setup();
     const wmaticPrice = await priceFeed.convertFrom(wmatic.address, DEPOSIT_AMOUNT);
     const rebalanceAmount = DEPOSIT_AMOUNT.mul(75).div(100);
     const mintAmount = wmaticPrice.mul(70).div(110);
@@ -193,18 +127,18 @@ describe("--- MIMORebalance Integration Tests ---", () => {
       priceRoute: routeData.data.priceRoute,
       srcAmount: rebalanceAmount.toString(),
       slippage: 100, // 1% slippage
-      userAddress: rebalance.address,
+      userAddress: mimoRebalance.address,
     };
 
     // We now use the paraswap API to get the best route to sell the PAR we just loaned
     const { data } = await getParaswapTxData(bodyParams);
 
     const rebalanceData = [
-      [wmatic.address, rebalance.address, rebalanceAmount],
+      [wmatic.address, mimoRebalance.address, rebalanceAmount],
       [usdc.address, vaultId, mintAmount],
       [0, data.data],
     ];
-    const MIMOProxyData = rebalance.interface.encodeFunctionData("executeAction", [
+    const MIMOProxyData = mimoRebalance.interface.encodeFunctionData("executeAction", [
       defaultAbiCoder.encode(
         ["tuple(address,address,uint256)", "tuple(address,uint256,uint256)", "tuple(uint256,bytes)"],
         rebalanceData,
@@ -212,9 +146,9 @@ describe("--- MIMORebalance Integration Tests ---", () => {
     ]);
     const usdcVautIdBefore = await vaultsDataProvider.vaultId(usdc.address, mimoProxy.address);
     const wmaticCollateralBalanceBefore = await vaultsDataProvider.vaultCollateralBalance(vaultId);
-    const tx = await mimoProxy.execute(rebalance.address, MIMOProxyData);
+    const tx = await mimoProxy.execute(mimoRebalance.address, MIMOProxyData);
     const receipt = await tx.wait(1);
-    console.log("Rebalance gas used with paraswap : ", receipt.gasUsed.toString());
+    console.log("mimoRebalance gas used with paraswap : ", receipt.gasUsed.toString());
     const wmaticCollateralBalanceAfter = await vaultsDataProvider.vaultCollateralBalance(vaultId);
     const usdcVautIdAfter = await vaultsDataProvider.vaultId(usdc.address, mimoProxy.address);
     expect(usdcVautIdBefore).to.be.equal(ethers.constants.Zero);
@@ -222,15 +156,29 @@ describe("--- MIMORebalance Integration Tests ---", () => {
     expect(wmaticCollateralBalanceBefore).to.be.equal(DEPOSIT_AMOUNT);
     expect(Number(wmaticCollateralBalanceAfter)).to.be.closeTo(Number(DEPOSIT_AMOUNT.sub(rebalanceAmount)), 1e16);
   });
-  it("should be able to setPermission and rebalance in 1 tx", async () => {
-    const { mimoProxy, rebalance, wmatic, priceFeed, usdc, vaultId, vaultsDataProvider } = await setup();
+  it("should be able to setPermission and mimoRebalance in 1 tx", async () => {
+    const {
+      mimoProxy,
+      mimoRebalance,
+      wmatic,
+      priceFeed,
+      usdc,
+      vaultId,
+      vaultsDataProvider,
+      mimoProxyGuard,
+      mimoProxyActions,
+    } = await setup();
     const rebalanceSelector = getSelector(
-      rebalance.interface.functions[
+      mimoRebalance.interface.functions[
         "rebalanceOperation(address,uint256,uint256,uint256,(address,uint256,uint256),(uint256,bytes))"
       ].format(),
     );
-    await mimoProxy.setPermission(rebalance.address, rebalance.address, rebalanceSelector, false);
-    const permission = await mimoProxy.getPermission(rebalance.address, rebalance.address, rebalanceSelector);
+    await mimoProxyGuard.setPermission(mimoRebalance.address, mimoRebalance.address, rebalanceSelector, false);
+    const permission = await mimoProxyGuard.getPermission(
+      mimoRebalance.address,
+      mimoRebalance.address,
+      rebalanceSelector,
+    );
     const wmaticPrice = await priceFeed.convertFrom(wmatic.address, DEPOSIT_AMOUNT);
     const rebalanceAmount = DEPOSIT_AMOUNT.mul(75).div(100);
     const mintAmount = wmaticPrice.mul(70).div(110);
@@ -244,11 +192,11 @@ describe("--- MIMORebalance Integration Tests ---", () => {
     };
     const { data } = await getOneInchTxData(swapParams);
     const rebalanceData = [
-      [wmatic.address, rebalance.address, rebalanceAmount],
+      [wmatic.address, mimoRebalance.address, rebalanceAmount],
       [usdc.address, vaultId, mintAmount],
       [1, data.tx.data],
     ];
-    const mimoProxyData = rebalance.interface.encodeFunctionData("executeAction", [
+    const mimoProxyData = mimoRebalance.interface.encodeFunctionData("executeAction", [
       defaultAbiCoder.encode(
         ["tuple(address,address,uint256)", "tuple(address,uint256,uint256)", "tuple(uint256,bytes)"],
         rebalanceData,
@@ -258,13 +206,21 @@ describe("--- MIMORebalance Integration Tests ---", () => {
     const wmaticCollateralBalanceBefore = await vaultsDataProvider.vaultCollateralBalance(vaultId);
     await mimoProxy.batch(
       [
-        mimoProxy.interface.encodeFunctionData("setPermission", [
-          rebalance.address,
-          rebalance.address,
-          rebalanceSelector,
-          true,
+        mimoProxy.interface.encodeFunctionData("execute", [
+          mimoProxyActions.address,
+          mimoProxyActions.interface.encodeFunctionData("multicall", [
+            [mimoProxyGuard.address],
+            [
+              mimoProxyGuard.interface.encodeFunctionData("setPermission", [
+                mimoRebalance.address,
+                mimoRebalance.address,
+                rebalanceSelector,
+                true,
+              ]),
+            ],
+          ]),
         ]),
-        mimoProxy.interface.encodeFunctionData("execute", [rebalance.address, mimoProxyData]),
+        mimoProxy.interface.encodeFunctionData("execute", [mimoRebalance.address, mimoProxyData]),
       ],
       true,
     );
@@ -276,9 +232,8 @@ describe("--- MIMORebalance Integration Tests ---", () => {
     expect(wmaticCollateralBalanceBefore).to.be.equal(DEPOSIT_AMOUNT);
     expect(Number(wmaticCollateralBalanceAfter)).to.be.closeTo(Number(DEPOSIT_AMOUNT.sub(rebalanceAmount)), 1e16);
   });
-  it("should be able to rebalance 100%", async () => {
-    const { mimoProxy, rebalance, wmatic, usdc, vaultId, vaultsDataProvider, lendingPool } = await setup();
-    const premium = await lendingPool.FLASHLOAN_PREMIUM_TOTAL();
+  it("should be able to mimoRebalance 100%", async () => {
+    const { mimoProxy, mimoRebalance, wmatic, usdc, vaultId, vaultsDataProvider, premium } = await setup();
     const rebalanceAmount = DEPOSIT_AMOUNT.mul(1e8).div(premium.add(1e4)).div(1e4);
     const mintAmount = await vaultsDataProvider.vaultDebt(vaultId);
     const swapParams: OneInchSwapParams = {
@@ -291,11 +246,11 @@ describe("--- MIMORebalance Integration Tests ---", () => {
     };
     const { data } = await getOneInchTxData(swapParams);
     const rebalanceData = [
-      [wmatic.address, rebalance.address, rebalanceAmount],
+      [wmatic.address, mimoRebalance.address, rebalanceAmount],
       [usdc.address, vaultId, mintAmount],
       [1, data.tx.data],
     ];
-    const MIMOProxyData = rebalance.interface.encodeFunctionData("executeAction", [
+    const MIMOProxyData = mimoRebalance.interface.encodeFunctionData("executeAction", [
       defaultAbiCoder.encode(
         ["tuple(address,address,uint256)", "tuple(address,uint256,uint256)", "tuple(uint256,bytes)"],
         rebalanceData,
@@ -303,7 +258,7 @@ describe("--- MIMORebalance Integration Tests ---", () => {
     ]);
     const usdcVautIdBefore = await vaultsDataProvider.vaultId(usdc.address, mimoProxy.address);
     const wmaticCollateralBalanceBefore = await vaultsDataProvider.vaultCollateralBalance(vaultId);
-    await mimoProxy.execute(rebalance.address, MIMOProxyData);
+    await mimoProxy.execute(mimoRebalance.address, MIMOProxyData);
     const wmaticCollateralBalanceAfter = await vaultsDataProvider.vaultCollateralBalance(vaultId);
     const usdcVautIdAfter = await vaultsDataProvider.vaultId(usdc.address, mimoProxy.address);
     expect(usdcVautIdBefore).to.be.equal(ethers.constants.Zero);
@@ -312,7 +267,7 @@ describe("--- MIMORebalance Integration Tests ---", () => {
     expect(wmaticCollateralBalanceAfter).to.be.equal(ethers.constants.Zero);
   });
   it("it should revert if flashloan cannot be repaid", async () => {
-    const { mimoProxy, rebalance, wmatic, priceFeed, usdc, vaultId } = await setup();
+    const { mimoProxy, mimoRebalance, wmatic, priceFeed, usdc, vaultId } = await setup();
     const wmaticPrice = await priceFeed.convertFrom(wmatic.address, DEPOSIT_AMOUNT);
     const rebalanceAmount = DEPOSIT_AMOUNT;
     const mintAmount = wmaticPrice.mul(70).div(110);
@@ -326,20 +281,20 @@ describe("--- MIMORebalance Integration Tests ---", () => {
     };
     const { data } = await getOneInchTxData(swapParams);
     const rebalanceData = [
-      [wmatic.address, rebalance.address, rebalanceAmount],
+      [wmatic.address, mimoRebalance.address, rebalanceAmount],
       [usdc.address, vaultId, mintAmount],
       [1, data.tx.data],
     ];
-    const MIMOProxyData = rebalance.interface.encodeFunctionData("executeAction", [
+    const MIMOProxyData = mimoRebalance.interface.encodeFunctionData("executeAction", [
       defaultAbiCoder.encode(
         ["tuple(address,address,uint256)", "tuple(address,uint256,uint256)", "tuple(uint256,bytes)"],
         rebalanceData,
       ),
     ]);
-    await expect(mimoProxy.execute(rebalance.address, MIMOProxyData)).to.be.revertedWith("3");
+    await expect(mimoProxy.execute(mimoRebalance.address, MIMOProxyData)).to.be.reverted;
   });
-  it("it should revert if rebalance amount is too high", async () => {
-    const { mimoProxy, rebalance, wmatic, priceFeed, usdc, vaultId } = await setup();
+  it("it should revert if mimoRebalance amount is too high", async () => {
+    const { mimoProxy, mimoRebalance, wmatic, priceFeed, usdc, vaultId } = await setup();
     const wmaticPrice = await priceFeed.convertFrom(wmatic.address, DEPOSIT_AMOUNT);
     const rebalanceAmount = DEPOSIT_AMOUNT;
     const mintAmount = wmaticPrice;
@@ -353,16 +308,46 @@ describe("--- MIMORebalance Integration Tests ---", () => {
     };
     const { data } = await getOneInchTxData(swapParams);
     const rebalanceData = [
-      [wmatic.address, rebalance.address, rebalanceAmount],
+      [wmatic.address, mimoRebalance.address, rebalanceAmount],
       [usdc.address, vaultId, mintAmount],
       [1, data.tx.data],
     ];
-    const MIMOProxyData = rebalance.interface.encodeFunctionData("executeAction", [
+    const MIMOProxyData = mimoRebalance.interface.encodeFunctionData("executeAction", [
       defaultAbiCoder.encode(
         ["tuple(address,address,uint256)", "tuple(address,uint256,uint256)", "tuple(uint256,bytes)"],
         rebalanceData,
       ),
     ]);
-    await expect(mimoProxy.execute(rebalance.address, MIMOProxyData)).to.be.reverted;
+    await expect(mimoProxy.execute(mimoRebalance.address, MIMOProxyData)).to.be.reverted;
+  });
+  it("should revert if paused", async () => {
+    const { mimoProxy, mimoRebalance, wmatic, priceFeed, usdc, vaultId } = await setup();
+    const wmaticPrice = await priceFeed.convertFrom(wmatic.address, DEPOSIT_AMOUNT);
+    const rebalanceAmount = DEPOSIT_AMOUNT.mul(75).div(100);
+    const mintAmount = wmaticPrice.mul(70).div(110);
+    const swapParams: OneInchSwapParams = {
+      fromTokenAddress: wmatic.address,
+      toTokenAddress: usdc.address,
+      amount: rebalanceAmount.toString(),
+      fromAddress: mimoProxy.address,
+      slippage: 1,
+      disableEstimate: true,
+    };
+    const { data } = await getOneInchTxData(swapParams);
+    const rebalanceData = [
+      [wmatic.address, mimoRebalance.address, rebalanceAmount],
+      [usdc.address, vaultId, mintAmount],
+      [1, data.tx.data],
+    ];
+    const MIMOProxyData = mimoRebalance.interface.encodeFunctionData("executeAction", [
+      defaultAbiCoder.encode(
+        ["tuple(address,address,uint256)", "tuple(address,uint256,uint256)", "tuple(uint256,bytes)"],
+        rebalanceData,
+      ),
+    ]);
+    await mimoRebalance.pause();
+
+    // Cannot use revertedWith as custom error message bubble up in low level call not supported by hardhat
+    await expect(mimoProxy.execute(mimoRebalance.address, MIMOProxyData)).to.be.reverted;
   });
 });

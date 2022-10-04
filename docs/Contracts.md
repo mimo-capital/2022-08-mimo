@@ -3,7 +3,7 @@
 ## Inheritable Functions
 SuperVaults V2 extracts out integraiton with external contracts into inherited contracts for modular functionality.These contracts are inherited from the `SuperVault V2` actions contracts. 
 
-### MIMOFlashloan
+### MIMOFlashLoan
 The MIMOFlashLoan handles taking an AAVE flashloan and executing it. 
 
 #### constructor

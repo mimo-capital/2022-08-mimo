@@ -1,22 +1,9 @@
 import chai, { expect } from "chai";
 import { solidity } from "ethereum-waffle";
 import { defaultAbiCoder } from "ethers/lib/utils";
-import { deployments, ethers, network } from "hardhat";
-import { ADDRESSES } from "../../config/addresses";
-import { POLYGON_ENDPOINT } from "../../hardhat.config";
-import {
-  IAddressProvider,
-  IPriceFeed,
-  ISTABLEX,
-  IVaultsCore,
-  IVaultsDataProvider,
-  IWETH,
-  MIMOLeverage,
-  MIMOProxy,
-  MIMOProxyRegistry,
-  MIMOVaultActions,
-} from "../../typechain";
+import { deployments, ethers } from "hardhat";
 import { getOneInchTxData, getParaswapPriceRoute, getParaswapTxData, getSelector, OneInchSwapParams } from "../utils";
+import { baseSetup } from "./baseFixture";
 
 chai.use(solidity);
 
@@ -24,67 +11,27 @@ const DEPOSIT_AMOUNT = ethers.utils.parseEther("20");
 const BORROW_AMOUNT = ethers.utils.parseEther("10");
 
 const setup = deployments.createFixture(async () => {
-  const [owner] = await ethers.getSigners();
-  process.env.FORK_ID = "137";
-
-  // Fork polygon mainnet
-  await network.provider.request({
-    method: "hardhat_reset",
-    params: [
-      {
-        forking: {
-          jsonRpcUrl: POLYGON_ENDPOINT,
-        },
-      },
-    ],
-  });
-
-  // Deploy Proxy contracts
-  await deployments.fixture(["Proxy", "MIMOLeverage", "MIMOVaultActions"]);
-
-  // Fetch contracts
-  const chainAddresses = ADDRESSES["137"];
-  const addressProvider: IAddressProvider = await ethers.getContractAt(
-    "IAddressProvider",
-    chainAddresses.ADDRESS_PROVIDER,
-  );
-  const [vaultsCoreAddress, vaultsDataProviderAddress, priceFeedAddress, stablexAddress] = await Promise.all([
-    addressProvider.core(),
-    addressProvider.vaultsData(),
-    addressProvider.priceFeed(),
-    addressProvider.stablex(),
-  ]);
-
-  const [vaultsCore, vaultsDataProvider, priceFeed, stablex, wmatic, mimoProxyRegistry, vaultActions, leverage] =
-    (await Promise.all([
-      ethers.getContractAt("IVaultsCore", vaultsCoreAddress),
-      ethers.getContractAt("IVaultsDataProvider", vaultsDataProviderAddress),
-      ethers.getContractAt("IPriceFeed", priceFeedAddress),
-      ethers.getContractAt("ISTABLEX", stablexAddress),
-      ethers.getContractAt("IWETH", chainAddresses.WMATIC),
-      ethers.getContract("MIMOProxyRegistry"),
-      ethers.getContract("MIMOVaultActions"),
-      ethers.getContract("MIMOLeverage"),
-    ])) as [
-      IVaultsCore,
-      IVaultsDataProvider,
-      IPriceFeed,
-      ISTABLEX,
-      IWETH,
-      MIMOProxyRegistry,
-      MIMOVaultActions,
-      MIMOLeverage,
-    ];
-
-  await mimoProxyRegistry.deploy();
-  const deployedMIMOProxy = await mimoProxyRegistry.getCurrentProxy(owner.address);
-  const mimoProxy: MIMOProxy = await ethers.getContractAt("MIMOProxy", deployedMIMOProxy);
+  const {
+    owner,
+    vaultsCore,
+    vaultsDataProvider,
+    priceFeed,
+    stablex,
+    wmatic,
+    mimoVaultActions,
+    mimoLeverage,
+    mimoProxyActions,
+    mimoProxyGuard,
+    mimoProxy,
+  } = await baseSetup();
 
   // Set permission on deployed MIMOProxy for MIMOLeverage callback
-  await mimoProxy.setPermission(
-    leverage.address,
-    leverage.address,
-    getSelector(leverage.interface.functions["leverageOperation(address,uint256,uint256,(uint256,bytes))"].format()),
+  await mimoProxyGuard.setPermission(
+    mimoLeverage.address,
+    mimoLeverage.address,
+    getSelector(
+      mimoLeverage.interface.functions["leverageOperation(address,uint256,uint256,(uint256,bytes))"].format(),
+    ),
     true,
   );
 
@@ -97,17 +44,20 @@ const setup = deployments.createFixture(async () => {
     mimoProxy,
     vaultsCore,
     vaultsDataProvider,
-    vaultActions,
+    mimoVaultActions,
     wmatic,
-    leverage,
+    mimoLeverage,
     priceFeed,
     stablex,
+    mimoProxyGuard,
+    mimoProxyActions,
   };
 });
 
-describe("--- MIMOLeverage Integration Tests ---", () => {
-  it("should be able to leverage with deposit through 1 inch", async () => {
-    const { mimoProxy, leverage, wmatic, priceFeed, stablex, vaultsDataProvider } = await setup();
+describe("--- MIMOLeverage Integration Tests ---", function () {
+  this.retries(5);
+  it("should be able to mimoLeverage with deposit through 1 inch", async () => {
+    const { mimoProxy, mimoLeverage, wmatic, priceFeed, stablex, vaultsDataProvider } = await setup();
     const parToSell = await priceFeed.convertFrom(wmatic.address, BORROW_AMOUNT.mul(101).div(100));
     const swapParams: OneInchSwapParams = {
       fromTokenAddress: stablex.address,
@@ -121,30 +71,30 @@ describe("--- MIMOLeverage Integration Tests ---", () => {
     const leverageData = [
       DEPOSIT_AMOUNT,
       parToSell,
-      [wmatic.address, leverage.address, BORROW_AMOUNT],
+      [wmatic.address, mimoLeverage.address, BORROW_AMOUNT],
       [1, data.tx.data],
     ];
-    const mimoProxyData = leverage.interface.encodeFunctionData("executeAction", [
+    const mimoProxyData = mimoLeverage.interface.encodeFunctionData("executeAction", [
       defaultAbiCoder.encode(
         ["uint256", "uint256", "tuple(address,address,uint256)", "tuple(uint256,bytes)"],
         leverageData,
       ),
     ]);
     const vaultIdBefore = await vaultsDataProvider.vaultId(wmatic.address, mimoProxy.address);
-    const tx = await mimoProxy.execute(leverage.address, mimoProxyData);
+    const tx = await mimoProxy.execute(mimoLeverage.address, mimoProxyData);
     const receipt = await tx.wait(1);
-    console.log("Leverage gas used : ", receipt.gasUsed.toString());
+    console.log("mimoLeverage gas used : ", receipt.gasUsed.toString());
     const vaultIdAfter = await vaultsDataProvider.vaultId(wmatic.address, mimoProxy.address);
     const collateralBalance = await vaultsDataProvider.vaultCollateralBalance(vaultIdAfter);
     expect(vaultIdBefore).to.be.equal(ethers.constants.Zero);
     expect(collateralBalance).to.be.gte(DEPOSIT_AMOUNT.add(BORROW_AMOUNT));
   });
-  it("should be able to leverage without deposit through 1 inch", async () => {
-    const { mimoProxy, leverage, wmatic, priceFeed, stablex, vaultsDataProvider, vaultActions } = await setup();
+  it("should be able to mimoLeverage without deposit through 1 inch", async () => {
+    const { mimoProxy, mimoLeverage, wmatic, priceFeed, stablex, vaultsDataProvider, mimoVaultActions } = await setup();
     await wmatic.approve(mimoProxy.address, DEPOSIT_AMOUNT);
     await mimoProxy.execute(
-      vaultActions.address,
-      vaultActions.interface.encodeFunctionData("deposit", [wmatic.address, DEPOSIT_AMOUNT]),
+      mimoVaultActions.address,
+      mimoVaultActions.interface.encodeFunctionData("deposit", [wmatic.address, DEPOSIT_AMOUNT]),
     );
     const parToSell = await priceFeed.convertFrom(wmatic.address, BORROW_AMOUNT.mul(101).div(100));
     const swapParams: OneInchSwapParams = {
@@ -156,8 +106,8 @@ describe("--- MIMOLeverage Integration Tests ---", () => {
       disableEstimate: true,
     };
     const { data } = await getOneInchTxData(swapParams);
-    const leverageData = [0, parToSell, [wmatic.address, leverage.address, BORROW_AMOUNT], [1, data.tx.data]];
-    const mimoProxyData = leverage.interface.encodeFunctionData("executeAction", [
+    const leverageData = [0, parToSell, [wmatic.address, mimoLeverage.address, BORROW_AMOUNT], [1, data.tx.data]];
+    const mimoProxyData = mimoLeverage.interface.encodeFunctionData("executeAction", [
       defaultAbiCoder.encode(
         ["uint256", "uint256", "tuple(address,address,uint256)", "tuple(uint256,bytes)"],
         leverageData,
@@ -165,15 +115,15 @@ describe("--- MIMOLeverage Integration Tests ---", () => {
     ]);
     const vaultId = await vaultsDataProvider.vaultId(wmatic.address, mimoProxy.address);
     const collateralBalanceBefore = await vaultsDataProvider.vaultCollateralBalance(vaultId);
-    const tx = await mimoProxy.execute(leverage.address, mimoProxyData);
+    const tx = await mimoProxy.execute(mimoLeverage.address, mimoProxyData);
     const receipt = await tx.wait(1);
-    console.log("Leverage gas used : ", receipt.gasUsed.toString());
+    console.log("mimoLeverage gas used : ", receipt.gasUsed.toString());
     const collateralBalanceAfter = await vaultsDataProvider.vaultCollateralBalance(vaultId);
     expect(collateralBalanceBefore).to.be.equal(DEPOSIT_AMOUNT);
     expect(collateralBalanceAfter).to.be.gte(DEPOSIT_AMOUNT.add(BORROW_AMOUNT));
   });
-  it("should be able to leverage through paraswap", async () => {
-    const { mimoProxy, leverage, wmatic, priceFeed, stablex, vaultsDataProvider } = await setup();
+  it("should be able to mimoLeverage through paraswap", async () => {
+    const { mimoProxy, mimoLeverage, wmatic, priceFeed, stablex, vaultsDataProvider } = await setup();
     await wmatic.approve(mimoProxy.address, DEPOSIT_AMOUNT);
     const parToSell = await priceFeed.convertFrom(wmatic.address, BORROW_AMOUNT.mul(101).div(100));
     const pricesParams = {
@@ -195,35 +145,49 @@ describe("--- MIMOLeverage Integration Tests ---", () => {
       priceRoute: routeData.data.priceRoute,
       srcAmount: parToSell.toString(),
       slippage: 100, // 1% slippage
-      userAddress: leverage.address,
+      userAddress: mimoLeverage.address,
     };
 
     // We now use the paraswap API to get the best route to sell the PAR we just loaned
     const { data } = await getParaswapTxData(bodyParams);
 
-    const leverageData = [DEPOSIT_AMOUNT, parToSell, [wmatic.address, leverage.address, BORROW_AMOUNT], [0, data.data]];
-    const mimoProxyData = leverage.interface.encodeFunctionData("executeAction", [
+    const leverageData = [
+      DEPOSIT_AMOUNT,
+      parToSell,
+      [wmatic.address, mimoLeverage.address, BORROW_AMOUNT],
+      [0, data.data],
+    ];
+    const mimoProxyData = mimoLeverage.interface.encodeFunctionData("executeAction", [
       defaultAbiCoder.encode(
         ["uint256", "uint256", "tuple(address,address,uint256)", "tuple(uint256,bytes)"],
         leverageData,
       ),
     ]);
     const vaultIdBefore = await vaultsDataProvider.vaultId(wmatic.address, mimoProxy.address);
-    const tx = await mimoProxy.execute(leverage.address, mimoProxyData);
+    const tx = await mimoProxy.execute(mimoLeverage.address, mimoProxyData);
     const receipt = await tx.wait(1);
-    console.log("Leverage gas used : ", receipt.gasUsed.toString());
+    console.log("mimoLeverage gas used : ", receipt.gasUsed.toString());
     const vaultIdAfter = await vaultsDataProvider.vaultId(wmatic.address, mimoProxy.address);
     const collateralBalance = await vaultsDataProvider.vaultCollateralBalance(vaultIdAfter);
     expect(vaultIdBefore).to.be.equal(ethers.constants.Zero);
     expect(collateralBalance).to.be.gte(DEPOSIT_AMOUNT.add(BORROW_AMOUNT));
   });
-  it("should be able to setPermission and leverage in 1 tx", async () => {
-    const { mimoProxy, leverage, wmatic, priceFeed, stablex, vaultsDataProvider } = await setup();
+  it("should be able to setPermission and mimoLeverage in 1 tx", async () => {
+    const {
+      mimoProxy,
+      mimoLeverage,
+      wmatic,
+      priceFeed,
+      stablex,
+      vaultsDataProvider,
+      mimoProxyGuard,
+      mimoProxyActions,
+    } = await setup();
     const leverageSelector = getSelector(
-      leverage.interface.functions["leverageOperation(address,uint256,uint256,(uint256,bytes))"].format(),
+      mimoLeverage.interface.functions["leverageOperation(address,uint256,uint256,(uint256,bytes))"].format(),
     );
-    await mimoProxy.setPermission(leverage.address, leverage.address, leverageSelector, false);
-    const permission = await mimoProxy.getPermission(leverage.address, leverage.address, leverageSelector);
+    await mimoProxyGuard.setPermission(mimoLeverage.address, mimoLeverage.address, leverageSelector, false);
+    const permission = await mimoProxyGuard.getPermission(mimoLeverage.address, mimoLeverage.address, leverageSelector);
     const parToSell = await priceFeed.convertFrom(wmatic.address, BORROW_AMOUNT.mul(101).div(100));
     const swapParams: OneInchSwapParams = {
       fromTokenAddress: stablex.address,
@@ -237,10 +201,10 @@ describe("--- MIMOLeverage Integration Tests ---", () => {
     const leverageData = [
       DEPOSIT_AMOUNT,
       parToSell,
-      [wmatic.address, leverage.address, BORROW_AMOUNT],
+      [wmatic.address, mimoLeverage.address, BORROW_AMOUNT],
       [1, data.tx.data],
     ];
-    const mimoProxyData = leverage.interface.encodeFunctionData("executeAction", [
+    const mimoProxyData = mimoLeverage.interface.encodeFunctionData("executeAction", [
       defaultAbiCoder.encode(
         ["uint256", "uint256", "tuple(address,address,uint256)", "tuple(uint256,bytes)"],
         leverageData,
@@ -249,13 +213,21 @@ describe("--- MIMOLeverage Integration Tests ---", () => {
     const vaultIdBefore = await vaultsDataProvider.vaultId(wmatic.address, mimoProxy.address);
     await mimoProxy.batch(
       [
-        mimoProxy.interface.encodeFunctionData("setPermission", [
-          leverage.address,
-          leverage.address,
-          leverageSelector,
-          true,
+        mimoProxy.interface.encodeFunctionData("execute", [
+          mimoProxyActions.address,
+          mimoProxyActions.interface.encodeFunctionData("multicall", [
+            [mimoProxyGuard.address],
+            [
+              mimoProxyGuard.interface.encodeFunctionData("setPermission", [
+                mimoLeverage.address,
+                mimoLeverage.address,
+                leverageSelector,
+                true,
+              ]),
+            ],
+          ]),
         ]),
-        mimoProxy.interface.encodeFunctionData("execute", [leverage.address, mimoProxyData]),
+        mimoProxy.interface.encodeFunctionData("execute", [mimoLeverage.address, mimoProxyData]),
       ],
       true,
     );
@@ -266,7 +238,7 @@ describe("--- MIMOLeverage Integration Tests ---", () => {
     expect(collateralBalance).to.be.gte(DEPOSIT_AMOUNT.add(BORROW_AMOUNT));
   });
   it("should revert if flashloan cannot be repaid", async () => {
-    const { mimoProxy, leverage, wmatic, priceFeed, stablex } = await setup();
+    const { mimoProxy, mimoLeverage, wmatic, priceFeed, stablex } = await setup();
     await wmatic.approve(mimoProxy.address, DEPOSIT_AMOUNT);
     const parToSell = await priceFeed.convertFrom(wmatic.address, BORROW_AMOUNT.mul(50).div(100));
     const swapParams: OneInchSwapParams = {
@@ -281,19 +253,19 @@ describe("--- MIMOLeverage Integration Tests ---", () => {
     const leverageData = [
       DEPOSIT_AMOUNT,
       parToSell,
-      [wmatic.address, leverage.address, BORROW_AMOUNT],
+      [wmatic.address, mimoLeverage.address, BORROW_AMOUNT],
       [1, data.tx.data],
     ];
-    const mimoProxyData = leverage.interface.encodeFunctionData("executeAction", [
+    const mimoProxyData = mimoLeverage.interface.encodeFunctionData("executeAction", [
       defaultAbiCoder.encode(
         ["uint256", "uint256", "tuple(address,address,uint256)", "tuple(uint256,bytes)"],
         leverageData,
       ),
     ]);
-    await expect(mimoProxy.execute(leverage.address, mimoProxyData)).to.be.revertedWith("3");
+    await expect(mimoProxy.execute(mimoLeverage.address, mimoProxyData)).to.be.reverted;
   });
-  it("should revert if trying to leverage above MCR", async () => {
-    const { mimoProxy, leverage, wmatic, priceFeed, stablex } = await setup();
+  it("should revert if trying to mimoLeverage above MCR", async () => {
+    const { mimoProxy, mimoLeverage, wmatic, priceFeed, stablex } = await setup();
     await wmatic.approve(mimoProxy.address, DEPOSIT_AMOUNT);
     const parToSell = await priceFeed.convertFrom(wmatic.address, BORROW_AMOUNT.mul(201).div(100));
     const swapParams: OneInchSwapParams = {
@@ -308,15 +280,44 @@ describe("--- MIMOLeverage Integration Tests ---", () => {
     const leverageData = [
       DEPOSIT_AMOUNT,
       parToSell,
-      [wmatic.address, leverage.address, BORROW_AMOUNT],
+      [wmatic.address, mimoLeverage.address, BORROW_AMOUNT],
       [1, data.tx.data],
     ];
-    const mimoProxyData = leverage.interface.encodeFunctionData("executeAction", [
+    const mimoProxyData = mimoLeverage.interface.encodeFunctionData("executeAction", [
       defaultAbiCoder.encode(
         ["uint256", "uint256", "tuple(address,address,uint256)", "tuple(uint256,bytes)"],
         leverageData,
       ),
     ]);
-    await expect(mimoProxy.execute(leverage.address, mimoProxyData)).to.be.reverted;
+    await expect(mimoProxy.execute(mimoLeverage.address, mimoProxyData)).to.be.reverted;
+  });
+  it("should revert if paused", async () => {
+    const { mimoProxy, mimoLeverage, wmatic, priceFeed, stablex } = await setup();
+    const parToSell = await priceFeed.convertFrom(wmatic.address, BORROW_AMOUNT.mul(101).div(100));
+    const swapParams: OneInchSwapParams = {
+      fromTokenAddress: stablex.address,
+      toTokenAddress: wmatic.address,
+      amount: parToSell.toString(),
+      fromAddress: mimoProxy.address,
+      slippage: 1,
+      disableEstimate: true,
+    };
+    const { data } = await getOneInchTxData(swapParams);
+    const leverageData = [
+      DEPOSIT_AMOUNT,
+      parToSell,
+      [wmatic.address, mimoLeverage.address, BORROW_AMOUNT],
+      [1, data.tx.data],
+    ];
+    const mimoProxyData = mimoLeverage.interface.encodeFunctionData("executeAction", [
+      defaultAbiCoder.encode(
+        ["uint256", "uint256", "tuple(address,address,uint256)", "tuple(uint256,bytes)"],
+        leverageData,
+      ),
+    ]);
+    await mimoLeverage.pause();
+
+    // Cannot use revertedWith as custom error message bubble up in low level call not supported by hardhat
+    await expect(mimoProxy.execute(mimoLeverage.address, mimoProxyData)).to.be.reverted;
   });
 });

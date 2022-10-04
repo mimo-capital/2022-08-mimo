@@ -1,9 +1,9 @@
 import chai, { expect } from "chai";
-import { deployMockContract, solidity } from "ethereum-waffle";
+import { solidity } from "ethereum-waffle";
 import { defaultAbiCoder } from "ethers/lib/utils";
-import { artifacts, deployments, ethers } from "hardhat";
-import { MIMOProxy, MIMOProxyRegistry, MIMORebalance, MockLendingPool } from "../../typechain";
-import { getOneInchTxData, getSelector, OneInchSwapParams } from "../utils";
+import { deployments, ethers } from "hardhat";
+import { getSelector } from "../utils";
+import { baseSetup } from "./baseFixture";
 
 chai.use(solidity);
 
@@ -11,69 +11,30 @@ const DEPOSIT_AMOUNT = ethers.utils.parseEther("20");
 const DELEVERAGE_AMOUNT = DEPOSIT_AMOUNT.mul(75).div(100);
 
 export const setup = deployments.createFixture(async () => {
-  await deployments.fixture(["Proxy"]);
-  const { deploy } = deployments;
-  const [owner] = await ethers.getSigners();
-
-  // Get artifacts
-  const [
-    addressProviderArtifact,
-    vaultsCoreArtifact,
-    vaultsDataProviderArtifact,
-    priceFeedArtifact,
-    stablexArtifact,
-    wethArtifact,
-    dexAddressProviderArtifact,
-    erc20Artifact,
-  ] = await Promise.all([
-    artifacts.readArtifact("IAddressProvider"),
-    artifacts.readArtifact("IVaultsCore"),
-    artifacts.readArtifact("IVaultsDataProvider"),
-    artifacts.readArtifact("IPriceFeed"),
-    artifacts.readArtifact("ISTABLEX"),
-    artifacts.readArtifact("IWETH"),
-    artifacts.readArtifact("IDexAddressProvider"),
-    artifacts.readArtifact("IERC20"),
-  ]);
-
-  // Deploy mock contracts
-  const [addressProvider, vaultsCore, vaultsDataProvider, priceFeed, stablex, wmatic, dexAddressProvider, usdc] =
-    await Promise.all([
-      deployMockContract(owner, addressProviderArtifact.abi),
-      deployMockContract(owner, vaultsCoreArtifact.abi),
-      deployMockContract(owner, vaultsDataProviderArtifact.abi),
-      deployMockContract(owner, priceFeedArtifact.abi),
-      deployMockContract(owner, stablexArtifact.abi),
-      deployMockContract(owner, wethArtifact.abi),
-      deployMockContract(owner, dexAddressProviderArtifact.abi),
-      deployMockContract(owner, erc20Artifact.abi),
-    ]);
-
-  // Deploy and fetch non mock contracts
-  const mimoProxyRegistry: MIMOProxyRegistry = await ethers.getContract("MIMOProxyRegistry");
-
-  await deploy("MockLendingPool", {
-    from: owner.address,
-    args: [],
-  });
-  const lendingPool: MockLendingPool = await ethers.getContract("MockLendingPool");
-
-  await deploy("MIMORebalance", {
-    from: owner.address,
-    args: [addressProvider.address, dexAddressProvider.address, lendingPool.address, mimoProxyRegistry.address],
-  });
-  const rebalance: MIMORebalance = await ethers.getContract("MIMORebalance");
-
-  await mimoProxyRegistry.deploy();
-  const deployedMIMOProxy = await mimoProxyRegistry.getCurrentProxy(owner.address);
-  const mimoProxy: MIMOProxy = await ethers.getContractAt("MIMOProxy", deployedMIMOProxy);
+  const {
+    owner,
+    addressProvider,
+    vaultsCore,
+    vaultsDataProvider,
+    priceFeed,
+    stablex,
+    wmatic,
+    dexAddressProvider,
+    usdc,
+    mimoProxy,
+    mimoProxyFactory,
+    mimoProxyGuard,
+    mimoRebalance,
+    lendingPool,
+    data,
+  } = await baseSetup();
 
   // Set permission on deployed MIMOProxy to allow MIMORebalance callback
-  await mimoProxy.setPermission(
-    rebalance.address,
-    rebalance.address,
+  await mimoProxyGuard.setPermission(
+    mimoRebalance.address,
+    mimoRebalance.address,
     getSelector(
-      rebalance.interface.functions[
+      mimoRebalance.interface.functions[
         "rebalanceOperation(address,uint256,uint256,uint256,(address,uint256,uint256),(uint256,bytes))"
       ].format(),
     ),
@@ -85,7 +46,7 @@ export const setup = deployments.createFixture(async () => {
     wmatic.mock.transfer.returns(true),
     wmatic.mock.approve.returns(true),
     wmatic.mock.allowance.returns(DELEVERAGE_AMOUNT),
-    wmatic.mock.balanceOf.withArgs(rebalance.address).returns(DELEVERAGE_AMOUNT),
+    wmatic.mock.balanceOf.withArgs(mimoRebalance.address).returns(DELEVERAGE_AMOUNT),
     dexAddressProvider.mock.getDex.returns(
       "0x11111112542D85B3EF69AE05771c2dCCff4fAa26",
       "0x11111112542D85B3EF69AE05771c2dCCff4fAa26",
@@ -96,22 +57,8 @@ export const setup = deployments.createFixture(async () => {
     vaultsCore.mock.depositAndBorrow.returns(),
     vaultsCore.mock.repay.returns(),
     vaultsCore.mock.withdraw.returns(),
-    addressProvider.mock.stablex.returns(stablex.address),
-    addressProvider.mock.core.returns(vaultsCore.address),
-    addressProvider.mock.vaultsData.returns(vaultsDataProvider.address),
     vaultsDataProvider.mock.vaultCollateralBalance.withArgs(1).returns(DELEVERAGE_AMOUNT),
   ]);
-
-  // Fetch aggregator params
-  const swapParams: OneInchSwapParams = {
-    fromTokenAddress: "0xE2Aa7db6dA1dAE97C5f5C6914d285fBfCC32A128",
-    toTokenAddress: "0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270",
-    amount: DELEVERAGE_AMOUNT.toString(),
-    fromAddress: mimoProxy.address,
-    slippage: 1,
-    disableEstimate: true,
-  };
-  const { data } = await getOneInchTxData(swapParams);
 
   return {
     owner,
@@ -121,37 +68,52 @@ export const setup = deployments.createFixture(async () => {
     wmatic,
     addressProvider,
     dexAddressProvider,
-    mimoProxyRegistry,
+    mimoProxyFactory,
     lendingPool,
-    rebalance,
+    mimoRebalance,
     priceFeed,
     stablex,
     data,
     usdc,
   };
-}, "UnitTestRebalanceFixture");
+});
 
 describe("--- MIMORebalance Unit Tests ---", () => {
-  it("should be able to rebalance", async () => {
-    const { mimoProxy, rebalance, wmatic, owner, lendingPool, data, usdc } = await setup();
+  it("should initialize state variables correctly", async () => {
+    const { mimoProxyFactory, mimoRebalance } = await setup();
+    const _mimoProxyFactory = await mimoRebalance.proxyFactory();
+    expect(_mimoProxyFactory).to.be.equal(mimoProxyFactory.address);
+  });
+  it("should revert if trying to set state variables to address 0", async () => {
+    const { owner, addressProvider, dexAddressProvider, lendingPool } = await setup();
+    const { deploy } = deployments;
+    await expect(
+      deploy("MIMORebalance", {
+        from: owner.address,
+        args: [addressProvider.address, dexAddressProvider.address, lendingPool.address, ethers.constants.AddressZero],
+      }),
+    ).to.be.revertedWith("CANNOT_SET_TO_ADDRESS_ZERO()");
+  });
+  it("should be able to mimoRebalance", async () => {
+    const { mimoProxy, mimoRebalance, wmatic, owner, lendingPool, data, usdc } = await setup();
     const rebalanceData = [
-      [wmatic.address, rebalance.address, DELEVERAGE_AMOUNT],
+      [wmatic.address, mimoRebalance.address, DELEVERAGE_AMOUNT],
       [usdc.address, 1, ethers.utils.parseEther("5")], // Aribitrary because mock
       [1, data.tx.data],
     ];
-    const MIMOProxyData = rebalance.interface.encodeFunctionData("executeAction", [
+    const MIMOProxyData = mimoRebalance.interface.encodeFunctionData("executeAction", [
       defaultAbiCoder.encode(
         ["tuple(address,address,uint256)", "tuple(address,uint256,uint256)", "tuple(uint256,bytes)"],
         rebalanceData,
       ),
     ]);
-    await mimoProxy.execute(rebalance.address, MIMOProxyData);
+    await mimoProxy.execute(mimoRebalance.address, MIMOProxyData);
     const params = defaultAbiCoder.encode(
       ["address", "tuple(address,uint256,uint256)", "tuple(uint256,bytes)"],
       [owner.address, [usdc.address, 1, DELEVERAGE_AMOUNT], [1, data.tx.data]],
     );
     await lendingPool.executeOperation(
-      rebalance.address,
+      mimoRebalance.address,
       [wmatic.address],
       [DELEVERAGE_AMOUNT],
       [0],
@@ -160,26 +122,26 @@ describe("--- MIMORebalance Unit Tests ---", () => {
     );
   });
   it("should revert if initiator is not mimoProxy", async () => {
-    const { mimoProxy, rebalance, wmatic, owner, lendingPool, data, usdc } = await setup();
+    const { mimoProxy, mimoRebalance, wmatic, owner, lendingPool, data, usdc } = await setup();
     const rebalanceData = [
-      [wmatic.address, rebalance.address, DELEVERAGE_AMOUNT],
+      [wmatic.address, mimoRebalance.address, DELEVERAGE_AMOUNT],
       [usdc.address, 1, ethers.utils.parseEther("5")],
       [1, data.tx.data],
     ];
-    const MIMOProxyData = rebalance.interface.encodeFunctionData("executeAction", [
+    const MIMOProxyData = mimoRebalance.interface.encodeFunctionData("executeAction", [
       defaultAbiCoder.encode(
         ["tuple(address,address,uint256)", "tuple(address,uint256,uint256)", "tuple(uint256,bytes)"],
         rebalanceData,
       ),
     ]);
-    await mimoProxy.execute(rebalance.address, MIMOProxyData);
+    await mimoProxy.execute(mimoRebalance.address, MIMOProxyData);
     const params = defaultAbiCoder.encode(
       ["address", "tuple(address,uint256,uint256)", "tuple(uint256,bytes)"],
       [owner.address, [usdc.address, 1, DELEVERAGE_AMOUNT], [1, data.tx.data]],
     );
     await expect(
       lendingPool.executeOperation(
-        rebalance.address,
+        mimoRebalance.address,
         [wmatic.address],
         [DELEVERAGE_AMOUNT],
         [0],
@@ -189,25 +151,44 @@ describe("--- MIMORebalance Unit Tests ---", () => {
     ).to.be.revertedWith(`INITIATOR_NOT_AUTHORIZED("${owner.address}", "${mimoProxy.address}")`);
   });
   it("should revert if executeOperation called by other than lending pool", async () => {
-    const { mimoProxy, rebalance, wmatic, owner, data, usdc, lendingPool } = await setup();
+    const { mimoProxy, mimoRebalance, wmatic, owner, data, usdc, lendingPool } = await setup();
     const rebalanceData = [
-      [wmatic.address, rebalance.address, DELEVERAGE_AMOUNT],
+      [wmatic.address, mimoRebalance.address, DELEVERAGE_AMOUNT],
       [usdc.address, 1, ethers.utils.parseEther("5")],
       [1, data.tx.data],
     ];
-    const MIMOProxyData = rebalance.interface.encodeFunctionData("executeAction", [
+    const MIMOProxyData = mimoRebalance.interface.encodeFunctionData("executeAction", [
       defaultAbiCoder.encode(
         ["tuple(address,address,uint256)", "tuple(address,uint256,uint256)", "tuple(uint256,bytes)"],
         rebalanceData,
       ),
     ]);
-    await mimoProxy.execute(rebalance.address, MIMOProxyData);
+    await mimoProxy.execute(mimoRebalance.address, MIMOProxyData);
     const params = defaultAbiCoder.encode(
       ["address", "tuple(address,uint256,uint256)", "tuple(uint256,bytes)"],
       [owner.address, [usdc.address, 1, DELEVERAGE_AMOUNT], [1, data.tx.data]],
     );
     await expect(
-      rebalance.executeOperation([wmatic.address], [DELEVERAGE_AMOUNT], [0], mimoProxy.address, params),
+      mimoRebalance.executeOperation([wmatic.address], [DELEVERAGE_AMOUNT], [0], mimoProxy.address, params),
     ).to.be.revertedWith(`CALLER_NOT_LENDING_POOL("${owner.address}", "${lendingPool.address}")`);
+  });
+  it("should revert if paused", async () => {
+    const { mimoProxy, mimoRebalance, wmatic, usdc } = await setup();
+    await mimoRebalance.pause();
+
+    await expect(mimoRebalance.executeAction([])).to.be.revertedWith("PAUSED()");
+    await expect(mimoRebalance.executeOperation([wmatic.address], [10], [0], mimoProxy.address, [])).to.be.revertedWith(
+      "PAUSED()",
+    );
+    await expect(
+      mimoRebalance.rebalanceOperation(
+        wmatic.address,
+        10,
+        10,
+        0,
+        { toCollateral: usdc.address, vaultId: 1, mintAmount: 1 },
+        { dexIndex: 1, dexTxData: [] },
+      ),
+    ).to.be.revertedWith("PAUSED()");
   });
 });

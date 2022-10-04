@@ -2,33 +2,46 @@
 pragma solidity ^0.8.4;
 
 import "./IMIMOProxy.sol";
+import "./IMIMOProxyGuard.sol";
 
 /// @title IMIMOProxyFactory
 /// @notice Deploys new proxies with CREATE2.
 interface IMIMOProxyFactory {
-  /// EVENTS ///
+  struct ProxyState {
+    address owner;
+    IMIMOProxyGuard proxyGuard;
+    uint256 minGas;
+  }
 
-  event DeployProxy(address indexed deployer, address indexed owner, address proxy);
+  event ProxyDeployed(address indexed owner, address indexed proxy, ProxyState proxyState);
 
-  /// PUBLIC CONSTANT FUNCTIONS ///
+  event PermissionsCleared(address indexed proxy, address newProxyGuard);
 
-  /// @notice Mapping to track all deployed proxies.
-  /// @param proxy The address of the proxy to make the check for.
-  function isProxy(address proxy) external view returns (bool result);
+  event OwnershipTransferred(address indexed proxy, address indexed previousOwner, address indexed newOwner);
 
-  /// @notice The release version of PRBProxy.
-  /// @dev This is stored in the factory rather than the proxy to save gas for end users.
+  event OwnershipClaimed(address indexed proxy, address indexed newOwner);
+
+  event MinGasSet(address indexed proxy, uint256 minGas);
+
+  function deploy() external;
+
+  function transferOwnership(address proxy, address newOwner) external;
+
+  function claimOwnership(address proxy, bool clear) external;
+
+  function clearPermissions(address proxy) external;
+
+  function setMinGas(address proxy, uint256 minGas) external;
+
+  function mimoProxyGuardBase() external returns (address);
+
+  function isProxy(address proxy) external returns (bool result);
+
   function VERSION() external view returns (uint256);
 
-  /// PUBLIC NON-CONSTANT FUNCTIONS ///
+  function getProxyState(address proxy) external view returns (ProxyState memory proxyState);
 
-  /// @notice Deploys a new proxy 
-  /// @dev Sets "msg.sender" as the owner of the proxy.
-  /// @return proxy The address of the newly deployed proxy contract.
-  function deploy() external returns (IMIMOProxy proxy);
+  function getCurrentProxy(address owner) external view returns (IMIMOProxy proxy);
 
-  /// @notice Deploys a new proxy for a given owner and returns the address of the newly created proxy
-  /// @param owner The owner of the proxy.
-  /// @return proxy The address of the newly deployed proxy contract.
-  function deployFor(address owner) external returns (IMIMOProxy proxy);
+  function getPendingOwner(address proxy) external view returns (address pendingOwner);
 }

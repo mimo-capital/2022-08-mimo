@@ -1,12 +1,13 @@
 import * as dotenv from "dotenv";
 
-import { HardhatUserConfig, task } from "hardhat/config";
+import "@nomiclabs/hardhat-ethers";
 import "@nomiclabs/hardhat-etherscan";
 import "@typechain/hardhat";
-import "hardhat-gas-reporter";
-import "solidity-coverage";
 import "hardhat-deploy";
-import "@nomiclabs/hardhat-ethers";
+import "hardhat-gas-reporter";
+import { HardhatUserConfig, task } from "hardhat/config";
+import "solidity-coverage";
+import "./tasks";
 
 dotenv.config();
 
@@ -20,17 +21,14 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
   }
 });
 
-// Temporary key generated for just this contest
-const INFURA_TOKEN = "4d0f478694054e17b9031f02bea2d926";
-
-const RINKEBY_ENDPOINT = `https://rinkeby.infura.io/v3/${INFURA_TOKEN}`;
-const KOVAN_ENDPOINT = `https://kovan.infura.io/v3/${INFURA_TOKEN}`;
-const GOERLI_ENDPOINT = `https://goerli.infura.io/v3/${INFURA_TOKEN}`;
-export const MAINNET_ENDPOINT = `https://mainnet.infura.io/v3/${INFURA_TOKEN}`;
-export const POLYGON_ENDPOINT = INFURA_TOKEN
-  ? `https://polygon-mainnet.infura.io/v3/${INFURA_TOKEN}`
+const RINKEBY_ENDPOINT = `https://rinkeby.infura.io/v3/${process.env.INFURA_TOKEN}`;
+const KOVAN_ENDPOINT = `https://kovan.infura.io/v3/${process.env.INFURA_TOKEN}`;
+const GOERLI_ENDPOINT = `https://goerli.infura.io/v3/${process.env.INFURA_TOKEN}`;
+export const MAINNET_ENDPOINT = `https://mainnet.infura.io/v3/${process.env.INFURA_TOKEN}`;
+export const POLYGON_ENDPOINT = process.env.INFURA_TOKEN
+  ? `https://polygon-mainnet.infura.io/v3/${process.env.INFURA_TOKEN}`
   : "https://polygon-rpc.com/";
-const MUMBAI_ENDPOINT = `https://polygon-mumbai.infura.io/v3/${INFURA_TOKEN}`;
+const MUMBAI_ENDPOINT = `https://polygon-mumbai.infura.io/v3/${process.env.INFURA_TOKEN}`;
 const FANTOM_TESTNET_ENDPOINT = `https://rpc.testnet.fantom.network/`;
 export const FANTOM_MAINNET_ENDPOINT = `https://rpc.ftm.tools/`;
 
@@ -55,7 +53,7 @@ const config: HardhatUserConfig = {
       mining: {
         auto: true,
       },
-      saveDeployments: true,
+      saveDeployments: false,
     },
     ganache: {
       url: "http://127.0.0.1:7545",
@@ -114,7 +112,7 @@ const config: HardhatUserConfig = {
     },
   },
   gasReporter: {
-    enabled: true, // Hardcoded to true for contest
+    enabled: process.env.REPORT_GAS !== undefined,
     currency: "USD",
   },
   etherscan: {

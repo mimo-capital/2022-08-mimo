@@ -6,16 +6,16 @@ const func: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
   const { deploy } = hre.deployments;
   const [deployer] = await hre.getUnnamedAccounts();
 
-  const mimoProxyBase = await deployments.get("MIMOProxyBase");
+  const mimoProxyGuardBase = await deployments.get("MIMOProxyGuard");
 
   await deploy("MIMOProxyFactory", {
     from: deployer,
-    args: [mimoProxyBase.address],
+    args: [mimoProxyGuardBase.address],
     log: true,
   });
 };
 
 export default func;
 func.id = "deploy_mimo_proxy_factory";
-func.dependencies = ["MIMOProxyBase"];
+func.dependencies = ["MIMOProxyGuardBase"];
 func.tags = ["Proxy", "MIMOProxyFactory"];

@@ -1,9 +1,9 @@
 import chai, { expect } from "chai";
-import { deployMockContract, solidity } from "ethereum-waffle";
-import { artifacts, deployments, ethers } from "hardhat";
-import { MIMOAutoRebalance } from "../../../typechain";
+import { solidity } from "ethereum-waffle";
+import { deployments, ethers } from "hardhat";
+import { MIMOAutoRebalance, MIMOProxyGuard } from "../../../typechain";
 import { getSelector } from "../../utils";
-import { setup as rebalanceSetUp } from "../MIMORebalance.test";
+import { baseSetup } from "../baseFixture";
 
 chai.use(solidity);
 
@@ -21,43 +21,28 @@ const setup = deployments.createFixture(async () => {
     mimoProxy,
     addressProvider,
     lendingPool,
-    mimoProxyRegistry,
+    mimoProxyFactory,
     vaultsCore,
     vaultsDataProvider,
-    rebalance,
+    mimoRebalance,
     priceFeed,
     stablex,
     wmatic,
     usdc,
     data,
-  } = await rebalanceSetUp();
-
-  // Get artifacts
-  const [accessControllerArtifact, configProviderArtifact] = await Promise.all([
-    artifacts.readArtifact("IAccessController"),
-    artifacts.readArtifact("IConfigProvider"),
-  ]);
-
-  // Deploy mock contracts
-  const [accessController, configProvider] = await Promise.all([
-    deployMockContract(owner, accessControllerArtifact.abi),
-    deployMockContract(owner, configProviderArtifact.abi),
-  ]);
+    accessController,
+    configProvider,
+  } = await baseSetup();
 
   // Deploy and fetch non mock contracts
   await deploy("MIMOAutoRebalance", {
     from: owner.address,
-    args: [addressProvider.address, lendingPool.address, mimoProxyRegistry.address, rebalance.address],
+    args: [addressProvider.address, lendingPool.address, mimoProxyFactory.address, mimoRebalance.address],
   });
-  const autoRebalance: MIMOAutoRebalance = await ethers.getContract("MIMOAutoRebalance");
+  const mimoAutoRebalance: MIMOAutoRebalance = await ethers.getContract("MIMOAutoRebalance");
 
   // Mock required function calls
   await Promise.all([
-    addressProvider.mock.vaultsData.returns(vaultsDataProvider.address),
-    addressProvider.mock.controller.returns(accessController.address),
-    addressProvider.mock.priceFeed.returns(priceFeed.address),
-    addressProvider.mock.config.returns(configProvider.address),
-    vaultsDataProvider.mock.vaultOwner.returns(mimoProxy.address),
     vaultsDataProvider.mock.vaultDebt.withArgs(1).returns(BORROW_AMOUNT),
     vaultsDataProvider.mock.vaultDebt.withArgs(2).returns(MINT_AMOUNT),
     vaultsDataProvider.mock.vaultCollateralBalance.withArgs(1).returns(DEPOSIT_AMOUNT),
@@ -65,7 +50,6 @@ const setup = deployments.createFixture(async () => {
     vaultsDataProvider.mock.vaultCollateralType.withArgs(1).returns(wmatic.address),
     vaultsDataProvider.mock.vaultCollateralType.withArgs(2).returns(usdc.address),
     vaultsDataProvider.mock.vaultId.withArgs(usdc.address, mimoProxy.address).returns(2),
-    accessController.mock.MANAGER_ROLE.returns(ethers.utils.keccak256(ethers.utils.toUtf8Bytes("MANAGER_ROLE"))),
     accessController.mock.hasRole.returns(true),
     priceFeed.mock.convertFrom.withArgs(wmatic.address, DEPOSIT_AMOUNT).returns(ethers.utils.parseEther("200")),
     priceFeed.mock.convertFrom
@@ -79,12 +63,15 @@ const setup = deployments.createFixture(async () => {
     configProvider.mock.collateralMinCollateralRatio.withArgs(usdc.address).returns(ethers.utils.parseUnits("110", 16)),
   ]);
 
+  const mimoProxyState = await mimoProxyFactory.getProxyState(mimoProxy.address);
+  const mimoProxyGuard: MIMOProxyGuard = await ethers.getContractAt("MIMOProxyGuard", mimoProxyState.proxyGuard);
+
   // Set permission on deployed MIMOProxy to allow MIMORebalance callback
-  await mimoProxy.setPermission(
-    autoRebalance.address,
-    rebalance.address,
+  await mimoProxyGuard.setPermission(
+    mimoAutoRebalance.address,
+    mimoRebalance.address,
     getSelector(
-      rebalance.interface.functions[
+      mimoRebalance.interface.functions[
         "rebalanceOperation(address,uint256,uint256,uint256,(address,uint256,uint256),(uint256,bytes))"
       ].format(),
     ),
@@ -102,12 +89,12 @@ const setup = deployments.createFixture(async () => {
     varFee: 0,
   };
 
-  await autoRebalance.setAutomation(1, autoVault);
+  await mimoAutoRebalance.setAutomation(1, autoVault);
 
-  // Format rebalance arguments to avoid code duplication
+  // Format mimoRebalance arguments to avoid code duplication
   const flData = {
     asset: wmatic.address,
-    proxyAction: autoRebalance.address,
+    proxyAction: mimoAutoRebalance.address,
     amount: DELEVERAGE_AMOUNT,
   };
   const rbData = {
@@ -126,13 +113,13 @@ const setup = deployments.createFixture(async () => {
     mimoProxy,
     addressProvider,
     lendingPool,
-    mimoProxyRegistry,
+    mimoProxyFactory,
     vaultsCore,
     vaultsDataProvider,
-    rebalance,
+    mimoRebalance,
     priceFeed,
     stablex,
-    autoRebalance,
+    mimoAutoRebalance,
     deploy,
     wmatic,
     usdc,
@@ -143,23 +130,23 @@ const setup = deployments.createFixture(async () => {
   };
 });
 
-describe("--- MIMOManagedRebalance Unit Test ---", () => {
+describe("--- MIMOAutoRebalance Unit Test ---", () => {
   it("should set state variable correctly", async () => {
-    const { autoRebalance, rebalance } = await setup();
-    const mimoRebalance = await autoRebalance.mimoRebalance();
-    expect(mimoRebalance).to.be.equal(rebalance.address);
+    const { mimoAutoRebalance, mimoRebalance } = await setup();
+    const _mimoRebalance = await mimoAutoRebalance.mimoRebalance();
+    expect(_mimoRebalance).to.be.equal(mimoRebalance.address);
   });
   it("should revert if trying to set state variable to address 0", async () => {
-    const { addressProvider, lendingPool, mimoProxyRegistry, deploy, owner } = await setup();
+    const { addressProvider, lendingPool, mimoProxyFactory, deploy, owner } = await setup();
     await expect(
       deploy("MIMOAutoRebalance", {
         from: owner.address,
-        args: [addressProvider.address, lendingPool.address, mimoProxyRegistry.address, ethers.constants.AddressZero],
+        args: [addressProvider.address, lendingPool.address, mimoProxyFactory.address, ethers.constants.AddressZero],
       }),
     ).to.be.revertedWith("CANNOT_SET_TO_ADDRESS_ZERO()");
   });
   it("should rever if trying to set variable fee above maximum variable fee", async () => {
-    const { usdc, autoRebalance } = await setup();
+    const { usdc, mimoAutoRebalance } = await setup();
     const autoVault = {
       isAutomated: true,
       toCollateral: usdc.address,
@@ -170,20 +157,20 @@ describe("--- MIMOManagedRebalance Unit Test ---", () => {
       fixedFee: 0,
       varFee: ethers.utils.parseEther("1.5"),
     };
-    await expect(autoRebalance.setAutomation(1, autoVault)).to.be.revertedWith(
+    await expect(mimoAutoRebalance.setAutomation(1, autoVault)).to.be.revertedWith(
       `VARIABLE_FEE_TOO_HIGH(${ethers.utils.parseEther("1.5")}, ${ethers.utils.parseEther("1.5")})`,
     );
   });
   it("should revert if vault debt is 0", async () => {
-    const { autoRebalance, vaultsDataProvider, swapData } = await setup();
+    const { mimoAutoRebalance, vaultsDataProvider, swapData } = await setup();
     await vaultsDataProvider.mock.vaultDebt.withArgs(1).returns(0);
-    await expect(autoRebalance.rebalance(1, swapData)).to.be.revertedWith(
+    await expect(mimoAutoRebalance.rebalance(1, swapData)).to.be.revertedWith(
       `VAULT_TRIGGER_RATIO_NOT_REACHED(${ethers.constants.MaxUint256}, ${ethers.utils.parseUnits("145", 16)})`,
     );
   });
   it("should revert if vault is not automated", async () => {
-    const { autoRebalance, usdc, swapData } = await setup();
-    await autoRebalance.setAutomation(1, {
+    const { mimoAutoRebalance, usdc, swapData } = await setup();
+    await mimoAutoRebalance.setAutomation(1, {
       isAutomated: false,
       toCollateral: usdc.address,
       allowedVariation: ethers.utils.parseUnits("1", 16),
@@ -193,11 +180,11 @@ describe("--- MIMOManagedRebalance Unit Test ---", () => {
       fixedFee: 0,
       varFee: 0,
     });
-    await expect(autoRebalance.rebalance(1, swapData)).to.be.revertedWith("VAULT_NOT_AUTOMATED()");
+    await expect(mimoAutoRebalance.rebalance(1, swapData)).to.be.revertedWith("VAULT_NOT_AUTOMATED()");
   });
   it("should revert if final vault ratio lower than set minimum vault ratio", async () => {
-    const { autoRebalance, usdc, swapData } = await setup();
-    await autoRebalance.setAutomation(1, {
+    const { mimoAutoRebalance, usdc, swapData } = await setup();
+    await mimoAutoRebalance.setAutomation(1, {
       isAutomated: true,
       toCollateral: usdc.address,
       allowedVariation: ethers.utils.parseUnits("1", 16),
@@ -207,12 +194,12 @@ describe("--- MIMOManagedRebalance Unit Test ---", () => {
       fixedFee: 0,
       varFee: 0,
     });
-    await expect(autoRebalance.rebalance(1, swapData)).to.be.revertedWith(
+    await expect(mimoAutoRebalance.rebalance(1, swapData)).to.be.revertedWith(
       `FINAL_VAULT_RATIO_TOO_LOW(${ethers.utils.parseUnits("900", 16)}, 1428571428571428571)`,
     );
   });
   it("should revert if initiator other than MIMOManagedRebalance", async () => {
-    const { wmatic, autoRebalance, lendingPool, mimoProxy, rbData, swapData, owner } = await setup();
+    const { wmatic, mimoAutoRebalance, lendingPool, mimoProxy, rbData, swapData, owner } = await setup();
     const params = ethers.utils.defaultAbiCoder.encode(
       ["address", "uint256", "tuple(address,uint256,uint256)", "tuple(uint256,bytes)"],
       [
@@ -224,17 +211,17 @@ describe("--- MIMOManagedRebalance Unit Test ---", () => {
     );
     await expect(
       lendingPool.executeOperation(
-        autoRebalance.address,
+        mimoAutoRebalance.address,
         [wmatic.address],
         [DELEVERAGE_AMOUNT],
         [0],
         owner.address,
         params,
       ),
-    ).to.be.revertedWith(`INITIATOR_NOT_AUTHORIZED("${owner.address}", "${autoRebalance.address}")`);
+    ).to.be.revertedWith(`INITIATOR_NOT_AUTHORIZED("${owner.address}", "${mimoAutoRebalance.address}")`);
   });
   it("should revert if msg.sender is other than lending pool", async () => {
-    const { wmatic, autoRebalance, lendingPool, mimoProxy, rbData, swapData, owner } = await setup();
+    const { wmatic, mimoAutoRebalance, lendingPool, mimoProxy, rbData, swapData, owner } = await setup();
     const params = ethers.utils.defaultAbiCoder.encode(
       ["address", "uint256", "tuple(address,uint256,uint256)", "tuple(uint256,bytes)"],
       [
@@ -245,11 +232,11 @@ describe("--- MIMOManagedRebalance Unit Test ---", () => {
       ],
     );
     await expect(
-      autoRebalance.executeOperation([wmatic.address], [DELEVERAGE_AMOUNT], [0], autoRebalance.address, params),
+      mimoAutoRebalance.executeOperation([wmatic.address], [DELEVERAGE_AMOUNT], [0], mimoAutoRebalance.address, params),
     ).to.be.revertedWith(`CALLER_NOT_LENDING_POOL("${owner.address}", "${lendingPool.address}")`);
   });
   it("should revert if insufficient funds to repay flashloan", async () => {
-    const { wmatic, autoRebalance, lendingPool, mimoProxy, rbData, swapData } = await setup();
+    const { wmatic, mimoAutoRebalance, lendingPool, mimoProxy, rbData, swapData } = await setup();
     const params = ethers.utils.defaultAbiCoder.encode(
       ["address", "uint256", "tuple(address,uint256,uint256)", "tuple(uint256,bytes)"],
       [
@@ -261,13 +248,28 @@ describe("--- MIMOManagedRebalance Unit Test ---", () => {
     );
     await expect(
       lendingPool.executeOperation(
-        autoRebalance.address,
+        mimoAutoRebalance.address,
         [wmatic.address],
         [DEPOSIT_AMOUNT.mul(2)],
         [0],
-        autoRebalance.address,
+        mimoAutoRebalance.address,
         params,
       ),
-    ).to.be.revertedWith("3");
+    ).to.be.reverted;
+  });
+  it("should revert if paused", async () => {
+    const { mimoAutoRebalance, swapData, lendingPool, wmatic } = await setup();
+    await mimoAutoRebalance.pause();
+    await expect(mimoAutoRebalance.rebalance(1, swapData)).to.be.revertedWith("PAUSED()");
+    await expect(
+      lendingPool.executeOperation(
+        mimoAutoRebalance.address,
+        [wmatic.address],
+        [DEPOSIT_AMOUNT.mul(2)],
+        [0],
+        mimoAutoRebalance.address,
+        [],
+      ),
+    ).to.be.revertedWith("PAUSED()");
   });
 });
