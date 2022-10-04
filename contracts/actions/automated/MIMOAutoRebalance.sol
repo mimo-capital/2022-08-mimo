@@ -27,7 +27,7 @@ contract MIMOAutoRebalance is MIMOPausable, MIMOAutoAction, MIMOFlashLoan, Reent
   using SafeERC20 for IERC20;
   using WadRayMath for uint256;
 
-  uint256 public constant ROUNDING_BUFFER = 1e15; // Padding for difference between accumulated debt since refresh 
+  uint256 public constant ROUNDING_BUFFER = 1e15; // Padding for difference between accumulated debt since refresh
   uint256 public constant FLASHLOAN_PERCENTAGE_FACTOR = 1e4; // The divisor needed to convert the flashloan fee int into a ratio
 
   address public immutable mimoRebalance;
@@ -97,7 +97,7 @@ contract MIMOAutoRebalance is MIMOPausable, MIMOAutoAction, MIMOFlashLoan, Reent
     uint256[] calldata premiums,
     address initiator,
     bytes calldata params
-  ) external override returns (bool) {
+  ) external override whenNotPaused returns (bool) {
     (
       address mimoProxy,
       uint256 managerFee,
@@ -183,7 +183,7 @@ contract MIMOAutoRebalance is MIMOPausable, MIMOAutoAction, MIMOFlashLoan, Reent
     IAddressProvider _a = a;
     uint256 targetRatio = autoVault.targetRatio + ROUNDING_BUFFER; // Add padding to account for parDebt accumulated since last refresh;
     uint256 toVaultTargetMcr = _a.config().collateralMinCollateralRatio(address(toCollateral)) + autoVault.mcrBuffer;
-    uint256 premiumInt = lendingPool.FLASHLOAN_PREMIUM_TOTAL(); // Get premium from lendingPool, in Int 
+    uint256 premiumInt = lendingPool.FLASHLOAN_PREMIUM_TOTAL(); // Get premium from lendingPool, in Int
     uint256 premium = (premiumInt * WadRayMath.WAD) / FLASHLOAN_PERCENTAGE_FACTOR; // Convert premium Int into WAD units
     uint256 rebalanceValue = (targetRatio.wadMul(vaultState.vaultDebt + autoVault.fixedFee) -
       vaultState.collateralValue).wadDiv(

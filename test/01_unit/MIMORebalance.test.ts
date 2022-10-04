@@ -172,4 +172,23 @@ describe("--- MIMORebalance Unit Tests ---", () => {
       mimoRebalance.executeOperation([wmatic.address], [DELEVERAGE_AMOUNT], [0], mimoProxy.address, params),
     ).to.be.revertedWith(`CALLER_NOT_LENDING_POOL("${owner.address}", "${lendingPool.address}")`);
   });
+  it("should revert if paused", async () => {
+    const { mimoProxy, mimoRebalance, wmatic, usdc } = await setup();
+    await mimoRebalance.pause();
+
+    await expect(mimoRebalance.executeAction([])).to.be.revertedWith("PAUSED()");
+    await expect(mimoRebalance.executeOperation([wmatic.address], [10], [0], mimoProxy.address, [])).to.be.revertedWith(
+      "PAUSED()",
+    );
+    await expect(
+      mimoRebalance.rebalanceOperation(
+        wmatic.address,
+        10,
+        10,
+        0,
+        { toCollateral: usdc.address, vaultId: 1, mintAmount: 1 },
+        { dexIndex: 1, dexTxData: [] },
+      ),
+    ).to.be.revertedWith("PAUSED()");
+  });
 });

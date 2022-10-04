@@ -98,7 +98,7 @@ contract MIMOManagedRebalance is
     uint256[] calldata premiums,
     address initiator,
     bytes calldata params
-  ) external override returns (bool) {
+  ) external override whenNotPaused returns (bool) {
     (
       address mimoProxy,
       uint256 managerFee,

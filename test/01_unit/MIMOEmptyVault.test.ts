@@ -154,4 +154,17 @@ describe("--- MIMOEmptyVault Unit Tests ---", () => {
       mimoEmptyVault.executeOperation([wmatic.address], [FL_AMOUNT], [0], mimoProxy.address, params),
     ).to.be.revertedWith(`CALLER_NOT_LENDING_POOL("${owner.address}", "${lendingPool.address}")`);
   });
+  it("should revert if paused", async () => {
+    const { mimoProxy, mimoEmptyVault, wmatic, owner } = await setup();
+    await wmatic.mock.balanceOf.withArgs(mimoProxy.address).returns(FL_AMOUNT);
+    await mimoEmptyVault.pause();
+
+    await expect(mimoEmptyVault.executeAction([])).to.be.revertedWith("PAUSED()");
+    await expect(
+      mimoEmptyVault.executeOperation([wmatic.address], [FL_AMOUNT], [0], mimoProxy.address, []),
+    ).to.be.revertedWith("PAUSED()");
+    await expect(
+      mimoEmptyVault.emptyVaultOperation(owner.address, wmatic.address, 1, 10, 10, { dexIndex: 1, dexTxData: [] }),
+    ).to.be.revertedWith("PAUSED()");
+  });
 });

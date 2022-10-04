@@ -288,4 +288,16 @@ describe("--- MIMOLeverage Unit Test ---", () => {
       mimoLeverage.executeOperation([wmatic.address], [BORROW_AMOUNT], [0], mimoProxy.address, params),
     ).to.be.revertedWith(`CALLER_NOT_LENDING_POOL("${owner.address}", "${lendingPool.address}")`);
   });
+  it("should revert if paused", async () => {
+    const { mimoProxy, mimoLeverage, wmatic } = await setup();
+    await mimoLeverage.pause();
+
+    await expect(mimoLeverage.executeAction([])).to.be.revertedWith("PAUSED()");
+    await expect(mimoLeverage.executeOperation([wmatic.address], [10], [0], mimoProxy.address, [])).to.be.revertedWith(
+      "PAUSED()",
+    );
+    await expect(
+      mimoLeverage.leverageOperation(wmatic.address, 10, 10, { dexIndex: 1, dexTxData: [] }),
+    ).to.be.revertedWith("PAUSED()");
+  });
 });

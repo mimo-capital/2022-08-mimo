@@ -481,9 +481,4 @@ describe("--- MIMOAutoRebalance Integration Test ---", function () {
     await mimoAutoRebalance.rebalance(vaultId, swapData);
     await expect(mimoAutoRebalance.rebalance(vaultId, swapData)).to.be.revertedWith("MAX_OPERATIONS_REACHED()");
   });
-  it("should revert if paused", async () => {
-    const { vaultId, mimoAutoRebalance, swapData } = await setup();
-    await mimoAutoRebalance.pause();
-    await expect(mimoAutoRebalance.rebalance(vaultId, swapData)).to.be.revertedWith("PAUSED()");
-  });
 });

@@ -20,8 +20,9 @@ describe("--- MIMOPausable Unit Tests ---", async () => {
   it("should be able to pause", async () => {
     const { mimoPausable } = await setup();
     const pausedBefore = await mimoPausable.paused();
-    await mimoPausable.pause();
+    const tx = await mimoPausable.pause();
     const pausedAfter = await mimoPausable.paused();
+    await expect(tx).to.emit(mimoPausable, "Paused");
     expect(pausedBefore).to.be.false;
     expect(pausedAfter).to.be.true;
   });
@@ -29,8 +30,9 @@ describe("--- MIMOPausable Unit Tests ---", async () => {
     const { mimoPausable } = await setup();
     await mimoPausable.pause();
     const pausedBefore = await mimoPausable.paused();
-    await mimoPausable.unpause();
+    const tx = await mimoPausable.unpause();
     const pausedAfter = await mimoPausable.paused();
+    await expect(tx).to.emit(mimoPausable, "Unpaused");
     expect(pausedBefore).to.be.true;
     expect(pausedAfter).to.be.false;
   });

@@ -425,11 +425,4 @@ describe("--- MIMOManagedRebalance Integration Test ---", function () {
       "ReentrancyGuard: reentrant call",
     );
   });
-  it("should revert when paused", async () => {
-    const { mimoManagedRebalance, managerA, flData, rbData, swapData } = await setup();
-    await mimoManagedRebalance.pause();
-    await expect(mimoManagedRebalance.connect(managerA).rebalance(flData, rbData, swapData)).to.be.revertedWith(
-      "PAUSED()",
-    );
-  });
 });

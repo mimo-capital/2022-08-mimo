@@ -17,10 +17,12 @@ contract MIMOPausable is IMIMOPausable, BoringOwnable {
 
   function pause() external override onlyOwner {
     _paused = true;
+    emit Paused();
   }
 
   function unpause() external override onlyOwner {
     _paused = false;
+    emit Unpaused();
   }
 
   function paused() external view override returns (bool) {
