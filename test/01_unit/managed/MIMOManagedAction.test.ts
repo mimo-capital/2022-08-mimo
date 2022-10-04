@@ -120,4 +120,19 @@ describe("--- MIMOManagedAction Unit Tests ---", () => {
       }),
     ).to.be.revertedWith(`MANAGER_NOT_LISTED()`);
   });
+  it("should revert if trying to set management on uninitialized vault", async () => {
+    const { managedAction, manager, vaultsDataProvider } = await setup();
+    await vaultsDataProvider.mock.vaultOwner.returns(ethers.constants.AddressZero);
+    await expect(
+      managedAction.setManagement(1, {
+        isManaged: true,
+        manager: manager.address,
+        allowedVariation: ethers.utils.parseUnits("1", 16),
+        minRatio: ethers.utils.parseUnits("150", 16),
+        fixedFee: 0,
+        varFee: 0,
+        mcrBuffer: ethers.utils.parseUnits("10", 16),
+      }),
+    ).to.be.revertedWith(`VAULT_NOT_INITIALIZED(1)`);
+  });
 });

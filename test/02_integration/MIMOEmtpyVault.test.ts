@@ -8,8 +8,8 @@ import {
   getParaswapPriceRoute,
   getParaswapTxData,
   getSelector,
-  WAD,
   OneInchSwapParams,
+  WAD,
 } from "../utils";
 import { baseSetup } from "./baseFixture";
 
@@ -61,6 +61,54 @@ const setup = deployments.createFixture(async () => {
   await mimoProxy.execute(mimoVaultActions.address, depositData);
   const vaultId = await vaultsDataProvider.vaultId(wmatic.address, mimoProxy.address);
 
+  const getOneInchEmptyVaultParams = async (amount: BigNumber, minAmount: BigNumber): Promise<any> => {
+    const swapParams: OneInchSwapParams = {
+      fromTokenAddress: wmatic.address,
+      toTokenAddress: stablex.address,
+      amount: amount.toString(),
+      fromAddress: mimoProxy.address,
+      slippage: 1,
+      disableEstimate: true,
+    };
+    const { data } = await getOneInchTxData(swapParams);
+    if (ethers.BigNumber.from(data.toTokenAmount).lt(minAmount)) {
+      return getOneInchEmptyVaultParams(amount.mul(101).div(100), minAmount);
+    }
+
+    return { flAmount: amount, data };
+  };
+
+  const getParaswapEmptyVaultParams = async (amount: BigNumber, minAmount: BigNumber): Promise<any> => {
+    const pricesParams = {
+      srcToken: wmatic.address,
+      destToken: stablex.address,
+      side: "SELL",
+      network: 137,
+      srcDecimals: 18,
+      destDecimals: 18,
+      amount: amount.toString(),
+    };
+    // Call Paraswap
+    const routeData = await getParaswapPriceRoute(pricesParams);
+
+    if (ethers.BigNumber.from(routeData.data.priceRoute.destAmount).lt(minAmount)) {
+      return getParaswapEmptyVaultParams(amount.mul(101).div(100), minAmount);
+    }
+
+    const bodyParams = {
+      srcToken: wmatic.address,
+      destToken: stablex.address,
+      priceRoute: routeData.data.priceRoute,
+      srcAmount: amount.toString(),
+      slippage: 100, // 1% slippage
+      userAddress: mimoProxy.address,
+    };
+
+    const { data } = await getParaswapTxData(bodyParams);
+
+    return { flAmount: amount, routeData, data };
+  };
+
   return {
     owner,
     mimoProxy,
@@ -77,25 +125,18 @@ const setup = deployments.createFixture(async () => {
     mimoProxyGuard,
     mimoProxyActions,
     multisig,
+    getOneInchEmptyVaultParams,
+    getParaswapEmptyVaultParams,
   };
 });
 
 describe("--- MIMOEmtpyVault Integration Tests ---", function () {
-  this.retries(5);
   it("should be able to empty vault with 1inch", async () => {
-    const { mimoProxy, mimoEmptyVault, wmatic, priceFeed, stablex, vaultId, vaultsDataProvider } = await setup();
+    const { mimoProxy, mimoEmptyVault, wmatic, priceFeed, vaultId, vaultsDataProvider, getOneInchEmptyVaultParams } =
+      await setup();
     const vaultDebt = await vaultsDataProvider.vaultDebt(vaultId);
     const vaultDebtInCollateral = await priceFeed.convertTo(wmatic.address, vaultDebt);
-    const flAmount = vaultDebtInCollateral.mul(101).div(100); // Account for slippage
-    const swapParams: OneInchSwapParams = {
-      fromTokenAddress: wmatic.address,
-      toTokenAddress: stablex.address,
-      amount: flAmount.toString(),
-      fromAddress: mimoProxy.address,
-      slippage: 1,
-      disableEstimate: true,
-    };
-    const { data } = await getOneInchTxData(swapParams);
+    const { flAmount, data } = await getOneInchEmptyVaultParams(vaultDebtInCollateral, vaultDebt);
     const emptyVaultData = [vaultId, [wmatic.address, mimoEmptyVault.address, flAmount], [1, data.tx.data]];
     const MIMOProxyData = mimoEmptyVault.interface.encodeFunctionData("executeAction", [
       defaultAbiCoder.encode(["uint256", "tuple(address,address,uint256)", "tuple(uint256,bytes)"], emptyVaultData),
@@ -112,33 +153,12 @@ describe("--- MIMOEmtpyVault Integration Tests ---", function () {
     expect(vaultDebtAfter).to.be.equal(ethers.constants.Zero);
   });
   it("should be able to empty vault with paraswap", async () => {
-    const { mimoProxy, mimoEmptyVault, wmatic, priceFeed, stablex, vaultId, vaultsDataProvider } = await setup();
+    const { mimoProxy, mimoEmptyVault, wmatic, priceFeed, vaultId, vaultsDataProvider, getParaswapEmptyVaultParams } =
+      await setup();
     const vaultDebt = await vaultsDataProvider.vaultDebt(vaultId);
     const vaultDebtInCollateral = await priceFeed.convertTo(wmatic.address, vaultDebt);
-    const flAmount = vaultDebtInCollateral.mul(101).div(100); // Account for slippage
-    const pricesParams = {
-      srcToken: wmatic.address,
-      destToken: stablex.address,
-      side: "SELL",
-      network: 137,
-      srcDecimals: 18,
-      destDecimals: 18,
-      amount: flAmount.toString(),
-    };
-    // Call Paraswap
-    const routeData = await getParaswapPriceRoute(pricesParams);
+    const { flAmount, data } = await getParaswapEmptyVaultParams(vaultDebtInCollateral, vaultDebt);
 
-    const bodyParams = {
-      srcToken: wmatic.address,
-      destToken: stablex.address,
-      priceRoute: routeData.data.priceRoute,
-      srcAmount: flAmount.toString(),
-      slippage: 100, // 1% slippage
-      userAddress: mimoProxy.address,
-    };
-
-    // We now use the paraswap API to get the best route to sell the PAR we just loaned
-    const { data } = await getParaswapTxData(bodyParams);
     const emptyVaultData = [vaultId, [wmatic.address, mimoEmptyVault.address, flAmount], [0, data.data]];
     const MIMOProxyData = mimoEmptyVault.interface.encodeFunctionData("executeAction", [
       defaultAbiCoder.encode(["uint256", "tuple(address,address,uint256)", "tuple(uint256,bytes)"], emptyVaultData),
@@ -160,11 +180,11 @@ describe("--- MIMOEmtpyVault Integration Tests ---", function () {
       mimoEmptyVault,
       wmatic,
       priceFeed,
-      stablex,
       vaultId,
       vaultsDataProvider,
       mimoProxyGuard,
       mimoProxyActions,
+      getOneInchEmptyVaultParams,
     } = await setup();
     const emptyVaultSelector = getSelector(
       mimoEmptyVault.interface.functions[
@@ -179,16 +199,7 @@ describe("--- MIMOEmtpyVault Integration Tests ---", function () {
     );
     const vaultDebt = await vaultsDataProvider.vaultDebt(vaultId);
     const vaultDebtInCollateral = await priceFeed.convertTo(wmatic.address, vaultDebt);
-    const flAmount = vaultDebtInCollateral.mul(101).div(100); // Account for slippage
-    const swapParams: OneInchSwapParams = {
-      fromTokenAddress: wmatic.address,
-      toTokenAddress: stablex.address,
-      amount: flAmount.toString(),
-      fromAddress: mimoProxy.address,
-      slippage: 1,
-      disableEstimate: true,
-    };
-    const { data } = await getOneInchTxData(swapParams);
+    const { flAmount, data } = await getOneInchEmptyVaultParams(vaultDebtInCollateral, vaultDebt);
     const emptyVaultData = [vaultId, [wmatic.address, mimoEmptyVault.address, flAmount], [1, data.tx.data]];
     const mimoProxyData = mimoEmptyVault.interface.encodeFunctionData("executeAction", [
       defaultAbiCoder.encode(["uint256", "tuple(address,address,uint256)", "tuple(uint256,bytes)"], emptyVaultData),
@@ -235,19 +246,11 @@ describe("--- MIMOEmtpyVault Integration Tests ---", function () {
       vaultsCore,
       owner,
       mimoProxyActions,
+      getOneInchEmptyVaultParams,
     } = await setup();
     const vaultDebt = await vaultsDataProvider.vaultDebt(vaultId);
     const vaultDebtInCollateral = await priceFeed.convertTo(wmatic.address, vaultDebt);
-    const flAmount = vaultDebtInCollateral.mul(101).div(100); // Account for slippage
-    const swapParams: OneInchSwapParams = {
-      fromTokenAddress: wmatic.address,
-      toTokenAddress: stablex.address,
-      amount: flAmount.toString(),
-      fromAddress: mimoProxy.address,
-      slippage: 1,
-      disableEstimate: true,
-    };
-    const { data } = await getOneInchTxData(swapParams);
+    const { flAmount, data } = await getOneInchEmptyVaultParams(vaultDebtInCollateral, vaultDebt);
     const emptyVaultData = [vaultId, [wmatic.address, mimoEmptyVault.address, flAmount], [1, data.tx.data]];
     const MIMOProxyData = mimoEmptyVault.interface.encodeFunctionData("executeAction", [
       defaultAbiCoder.encode(["uint256", "tuple(address,address,uint256)", "tuple(uint256,bytes)"], emptyVaultData),
@@ -274,11 +277,10 @@ describe("--- MIMOEmtpyVault Integration Tests ---", function () {
     await expect(mimoProxy.execute(mimoEmptyVault.address, MIMOProxyData)).to.be.reverted;
   });
   it("should revert if no enough collateral flashloaned", async () => {
-    const { mimoProxy, mimoEmptyVault, wmatic, priceFeed, stablex, vaultId, vaultsDataProvider } = await setup();
+    const { mimoProxy, mimoEmptyVault, wmatic, priceFeed, vaultId, vaultsDataProvider, stablex } = await setup();
     const vaultDebt = await vaultsDataProvider.vaultDebt(vaultId);
     const vaultDebtInCollateral = await priceFeed.convertTo(wmatic.address, vaultDebt);
-    const flAmount = vaultDebtInCollateral.mul(10); // Account for slippage
-
+    const flAmount = vaultDebtInCollateral.div(2);
     const swapParams: OneInchSwapParams = {
       fromTokenAddress: wmatic.address,
       toTokenAddress: stablex.address,
@@ -288,6 +290,7 @@ describe("--- MIMOEmtpyVault Integration Tests ---", function () {
       disableEstimate: true,
     };
     const { data } = await getOneInchTxData(swapParams);
+
     const emptyVaultData = [vaultId, [wmatic.address, mimoEmptyVault.address, flAmount], [1, data.tx.data]];
     const MIMOProxyData = mimoEmptyVault.interface.encodeFunctionData("executeAction", [
       defaultAbiCoder.encode(["uint256", "tuple(address,address,uint256)", "tuple(uint256,bytes)"], emptyVaultData),
@@ -295,33 +298,21 @@ describe("--- MIMOEmtpyVault Integration Tests ---", function () {
     await expect(mimoProxy.execute(mimoEmptyVault.address, MIMOProxyData)).to.be.reverted;
   });
   it("should not leave any funds in the mimoEmptyVault contracts", async () => {
-    const { owner, mimoProxy, mimoEmptyVault, wmatic, priceFeed, stablex, vaultId, vaultsDataProvider } = await setup();
+    const {
+      owner,
+      mimoProxy,
+      mimoEmptyVault,
+      wmatic,
+      priceFeed,
+      stablex,
+      vaultId,
+      vaultsDataProvider,
+      getParaswapEmptyVaultParams,
+    } = await setup();
     const vaultDebt = await vaultsDataProvider.vaultDebt(vaultId);
     const vaultDebtInCollateral = await priceFeed.convertTo(wmatic.address, vaultDebt);
-    const flAmount = vaultDebtInCollateral.mul(101).div(100); // Account for slippage
-    const pricesParams = {
-      srcToken: wmatic.address,
-      destToken: stablex.address,
-      side: "SELL",
-      network: 137,
-      srcDecimals: 18,
-      destDecimals: 18,
-      amount: flAmount.toString(),
-    };
-    // Call Paraswap
-    const routeData = await getParaswapPriceRoute(pricesParams);
+    const { flAmount, data, routeData } = await getParaswapEmptyVaultParams(vaultDebtInCollateral, vaultDebt);
 
-    const bodyParams = {
-      srcToken: wmatic.address,
-      destToken: stablex.address,
-      priceRoute: routeData.data.priceRoute,
-      srcAmount: flAmount.toString(),
-      slippage: 100, // 1% slippage
-      userAddress: mimoProxy.address,
-    };
-
-    // Use paraswap API to get the best route to sell the PAR we just loaned
-    const { data } = await getParaswapTxData(bodyParams);
     const emptyVaultData = [vaultId, [wmatic.address, mimoEmptyVault.address, flAmount], [0, data.data]];
     const MIMOProxyData = mimoEmptyVault.interface.encodeFunctionData("executeAction", [
       defaultAbiCoder.encode(["uint256", "tuple(address,address,uint256)", "tuple(uint256,bytes)"], emptyVaultData),
@@ -348,19 +339,11 @@ describe("--- MIMOEmtpyVault Integration Tests ---", function () {
     expect(ownerParBalanceAfter.sub(ownerParBalanceBefore)).to.be.closeTo(leftOverPar, WAD.mul(3).div(100));
   });
   it("should revert if paused", async () => {
-    const { mimoProxy, mimoEmptyVault, wmatic, priceFeed, stablex, vaultId, vaultsDataProvider } = await setup();
+    const { mimoProxy, mimoEmptyVault, wmatic, priceFeed, vaultId, vaultsDataProvider, getOneInchEmptyVaultParams } =
+      await setup();
     const vaultDebt = await vaultsDataProvider.vaultDebt(vaultId);
     const vaultDebtInCollateral = await priceFeed.convertTo(wmatic.address, vaultDebt);
-    const flAmount = vaultDebtInCollateral.mul(101).div(100); // Account for slippage
-    const swapParams: OneInchSwapParams = {
-      fromTokenAddress: wmatic.address,
-      toTokenAddress: stablex.address,
-      amount: flAmount.toString(),
-      fromAddress: mimoProxy.address,
-      slippage: 1,
-      disableEstimate: true,
-    };
-    const { data } = await getOneInchTxData(swapParams);
+    const { flAmount, data } = await getOneInchEmptyVaultParams(vaultDebtInCollateral, vaultDebt);
     const emptyVaultData = [vaultId, [wmatic.address, mimoEmptyVault.address, flAmount], [1, data.tx.data]];
     const MIMOProxyData = mimoEmptyVault.interface.encodeFunctionData("executeAction", [
       defaultAbiCoder.encode(["uint256", "tuple(address,address,uint256)", "tuple(uint256,bytes)"], emptyVaultData),

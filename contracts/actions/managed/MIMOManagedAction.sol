@@ -33,11 +33,18 @@ contract MIMOManagedAction is IMIMOManagedAction {
    */
   function setManagement(uint256 vaultId, ManagedVault calldata mgtParams) external override {
     address vaultOwner = a.vaultsData().vaultOwner(vaultId);
+
+    if (vaultOwner == address(0)) {
+      revert Errors.VAULT_NOT_INITIALIZED(vaultId);
+    }
+
     address mimoProxy = address(proxyFactory.getCurrentProxy(msg.sender));
 
-    if (mimoProxy != vaultOwner && vaultOwner != msg.sender) {
+    // If msg.sender isn't the mimoProxy, msg.sender should own the mimoProxy for the vaultId
+    if (vaultOwner != msg.sender && mimoProxy != vaultOwner) {
       revert Errors.CALLER_NOT_VAULT_OWNER(mimoProxy, vaultOwner);
     }
+
     if (!_managers[mgtParams.manager]) {
       revert Errors.MANAGER_NOT_LISTED();
     }

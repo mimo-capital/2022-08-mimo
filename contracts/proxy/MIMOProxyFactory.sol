@@ -47,7 +47,11 @@ contract MIMOProxyFactory is IMIMOProxyFactory {
   function deploy() external override {
     address currentProxy = address(_currentProxies[msg.sender]);
     if (address(currentProxy) != address(0)) {
-      revert Errors.ALREADY_OWNER(msg.sender, currentProxy);
+      if (currentProxy.code.length == 0) {
+        delete _proxyStates[currentProxy];
+      } else {
+        revert Errors.ALREADY_OWNER(msg.sender, currentProxy);
+      }
     }
     MIMOProxy proxy = new MIMOProxy(address(this));
     IMIMOProxyGuard proxyGuard = IMIMOProxyGuard(mimoProxyGuardBase.clone());

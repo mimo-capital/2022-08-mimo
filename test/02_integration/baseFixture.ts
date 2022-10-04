@@ -27,7 +27,6 @@ import {
   MIMORebalance,
   MIMOVaultActions,
 } from "../../typechain";
-import { getLatestTimestamp } from "../utils";
 
 export const baseSetup = deployments.createFixture(async () => {
   const [owner, alice, bob] = await ethers.getSigners();
@@ -159,13 +158,16 @@ export const baseSetup = deployments.createFixture(async () => {
   await accessController.connect(multisig).grantRole(MINITER_ROLE, owner.address);
 
   // Helper function calculating the updated vault debt by simulating refreshCollateral()
-  const getUpdatedVaultDebt = async (vaultId: BigNumber): Promise<BigNumber> => {
-    const vaultCollateralType = await vaultsDataProvider.vaultCollateralType(vaultId);
-    const lastRefresh = await vaultsCoreState.lastRefresh(vaultCollateralType);
-    const latestTime = await getLatestTimestamp();
-    const borrowRate = await configProvider.collateralBorrowRate(vaultCollateralType);
+  const getUpdatedVaultDebt = async (
+    vaultId: BigNumber,
+    latestTime: BigNumber,
+    lastRefresh: BigNumber,
+    collateralType: string,
+    cumulativeRate: BigNumber,
+  ): Promise<BigNumber> => {
+    const borrowRate = await configProvider.collateralBorrowRate(collateralType);
     const timeElapsed = latestTime.sub(lastRefresh);
-    const cumulativeRate = await vaultsCoreState.cumulativeRates(vaultCollateralType);
+    console.log("timeElapsed", timeElapsed.toString());
     const updatedCumulativeRate = await ratesManager.calculateCumulativeRate(borrowRate, cumulativeRate, timeElapsed);
     const vaultBaseDebt = await vaultsDataProvider.vaultBaseDebt(vaultId);
     return ratesManager.calculateDebt(vaultBaseDebt, updatedCumulativeRate);
@@ -180,6 +182,7 @@ export const baseSetup = deployments.createFixture(async () => {
     mimoProxy,
     vaultsCore,
     vaultsDataProvider,
+    vaultsCoreState,
     wmatic,
     priceFeed,
     stablex,

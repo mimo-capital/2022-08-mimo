@@ -120,7 +120,7 @@ contract MIMOEmptyVault is MIMOPausable, MIMOSwap, MIMOFlashLoan, IMIMOEmtpyVaul
     uint256 swapAmount,
     uint256 flashLoanRepayAmount,
     SwapData calldata swapData
-  ) external whenNotPaused {
+  ) external override whenNotPaused {
     IERC20 stablex = IERC20(a.stablex());
     IVaultsCore core = a.core();
 

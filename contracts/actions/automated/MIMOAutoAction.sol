@@ -31,17 +31,18 @@ contract MIMOAutoAction is IMIMOAutoAction {
    */
   function setAutomation(uint256 vaultId, AutomatedVault calldata autoParams) external override {
     address vaultOwner = a.vaultsData().vaultOwner(vaultId); // vaultOwner is the owner in vaultsCore
+
     if (vaultOwner == address(0)) {
       revert Errors.VAULT_NOT_INITIALIZED(vaultId);
     }
+
     address mimoProxy = address(proxyFactory.getCurrentProxy(msg.sender));
 
     // If msg.sender isn't the mimoProxy, msg.sender should own the mimoProxy for the vaultId
-    if (vaultOwner != msg.sender) {
-      if (mimoProxy != vaultOwner) {
-        revert Errors.CALLER_NOT_VAULT_OWNER(mimoProxy, vaultOwner);
-      }
+    if (vaultOwner != msg.sender && mimoProxy != vaultOwner) {
+      revert Errors.CALLER_NOT_VAULT_OWNER(mimoProxy, vaultOwner);
     }
+
     uint256 toVaultMcr = a.config().collateralMinCollateralRatio(autoParams.toCollateral);
     uint256 maxVarFee = (autoParams.targetRatio.wadDiv(toVaultMcr + autoParams.mcrBuffer) + WadRayMath.WAD).wadDiv(
       autoParams.targetRatio

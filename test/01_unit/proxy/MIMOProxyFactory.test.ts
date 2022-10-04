@@ -2,6 +2,7 @@ import chai, { expect } from "chai";
 import { deployMockContract, solidity } from "ethereum-waffle";
 import { artifacts, deployments, ethers } from "hardhat";
 import { MIMOLeverage, MIMOProxy, MIMOProxyFactory, MIMOProxyGuard, MockLendingPool } from "../../../typechain";
+import { SelfDestruct } from "../../../typechain/SelfDestruct";
 import { getSelector } from "../../utils";
 
 chai.use(solidity);
@@ -28,6 +29,11 @@ const setup = deployments.createFixture(async () => {
     args: [],
   });
 
+  await deploy("SelfDestruct", {
+    from: owner.address,
+  });
+  const selfDestruct: SelfDestruct = await ethers.getContract("SelfDestruct");
+
   const lendingPool: MockLendingPool = await ethers.getContract("MockLendingPool");
   await deploy("MIMOLeverage", {
     from: owner.address,
@@ -43,6 +49,7 @@ const setup = deployments.createFixture(async () => {
     mimoProxyFactory,
     mimoProxyGuardBase,
     leverage,
+    selfDestruct,
   };
 });
 
@@ -219,5 +226,26 @@ describe("--- MIMOProxyFactory Unit Tests ---", () => {
     await expect(mimoProxyFactory.connect(alice).setMinGas(mimoProxyAddress, 4000)).to.be.revertedWith(
       `NOT_OWNER("${owner.address}", "${alice.address}")`,
     );
+  });
+  it("should be able to deploy new proxy after self destruct", async () => {
+    const { mimoProxyFactory, selfDestruct, owner } = await setup();
+    await mimoProxyFactory.deploy();
+    const mimoProxyAddress = await mimoProxyFactory.getCurrentProxy(owner.address);
+    const mimoProxy: MIMOProxy = await ethers.getContractAt("MIMOProxy", mimoProxyAddress);
+    await mimoProxy.execute(
+      selfDestruct.address,
+      selfDestruct.interface.encodeFunctionData("selfDestruct", [owner.address]),
+    );
+    await mimoProxyFactory.deploy();
+    const newMimoProxyAddress = await mimoProxyFactory.getCurrentProxy(owner.address);
+    const newMimoProxy: MIMOProxy = await ethers.getContractAt("MIMOProxy", newMimoProxyAddress);
+    const oldProxyState = await mimoProxyFactory.getProxyState(mimoProxy.address);
+    const newProxyState = await mimoProxyFactory.getProxyState(newMimoProxy.address);
+    expect(oldProxyState.owner).to.be.equal(ethers.constants.AddressZero);
+    expect(oldProxyState.proxyGuard).to.be.equal(ethers.constants.AddressZero);
+    expect(oldProxyState.minGas).to.be.equal(ethers.constants.Zero);
+    expect(newProxyState.owner).to.be.equal(owner.address);
+    expect(newProxyState.proxyGuard).to.not.be.equal(ethers.constants.AddressZero);
+    expect(newProxyState.minGas).to.be.equal(ethers.BigNumber.from(5000));
   });
 });
